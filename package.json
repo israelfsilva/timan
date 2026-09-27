@@ -1,32 +1,46 @@
 {
 	"name": "timan",
-	"version": "2.0.0-dev",
+	"version": "0.1.0",
 	"description": "World time in the terminal, inspired by the Casio AE-1200WH.",
 	"type": "module",
 	"bin": {
 		"timan": "dist/main.js"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"README.md",
+		"LICENSE.txt"
 	],
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json",
+		"clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+		"build": "npm run clean && tsc -p tsconfig.build.json",
 		"typecheck": "tsc --noEmit",
 		"test": "node --test \"test/**/*.test.ts\"",
+		"test:update": "node --test --test-update-snapshots \"test/**/*.test.ts\"",
 		"gen:map": "node scripts/gen-map.ts",
-		"test:update": "node --test --test-update-snapshots \"test/**/*.test.ts\""
+		"prepublishOnly": "npm run typecheck && npm test && npm run build"
 	},
 	"engines": {
-		"node": ">=24"
+		"node": ">=18.3"
 	},
 	"keywords": [
-		"timan",
+		"cli",
+		"tui",
 		"timezone",
+		"world-clock",
 		"terminal",
-		"world-time"
+		"casio"
 	],
 	"author": "Israel Júnior <israeljunior.net@gmail.com>",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/israelfsilva/timan.git"
+	},
+	"homepage": "https://github.com/israelfsilva/timan#readme",
+	"bugs": {
+		"url": "https://github.com/israelfsilva/timan/issues"
+	},
 	"devDependencies": {
 		"@types/node": "^24.19.0",
 		"typescript": "^7.0.2"
