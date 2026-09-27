@@ -18,20 +18,6 @@ npm install -g @israelfsilva/timan
 brew install israelfsilva/tap/timan
 ```
 
-**AUR** (Arch Linux):
-
-```sh
-yay -S timan
-```
-
-or without an AUR helper:
-
-```sh
-git clone https://aur.archlinux.org/timan.git
-cd timan
-makepkg -si
-```
-
 ## Usage
 
 ```sh
