@@ -1,19 +1,34 @@
 {
-  "name": "timan",
-  "version": "1.0.0",
-  "description": "Command line interface to get Timezone.",
-  "main": "./src/js/timan/timan.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": ["timan", "timezone", "terminal"],
-  "author": "Israel Júnior <israeljunior.net@gmail.com>",
-  "license": "MIT",
-  "dependencies": {
-    "commander": "^3.0.0",
-    "moment": "^2.24.0",
-    "moment-timezone": "^0.5.26"
-  },
-  "bin": "./src/js/timan/timan.js",
-  "preferGlobal": true
+	"name": "timan",
+	"version": "2.0.0-dev",
+	"description": "World time in the terminal, inspired by the Casio AE-1200WH.",
+	"type": "module",
+	"bin": {
+		"timan": "dist/main.js"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"typecheck": "tsc --noEmit",
+		"test": "node --test \"test/**/*.test.ts\"",
+		"gen:map": "node scripts/gen-map.ts",
+		"test:update": "node --test --test-update-snapshots \"test/**/*.test.ts\""
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"keywords": [
+		"timan",
+		"timezone",
+		"terminal",
+		"world-time"
+	],
+	"author": "Israel Júnior <israeljunior.net@gmail.com>",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^24.19.0",
+		"typescript": "^7.0.2"
+	}
 }
