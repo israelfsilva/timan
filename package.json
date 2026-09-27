@@ -1,5 +1,5 @@
 {
-	"name": "timan",
+	"name": "@israelfsilva/timan",
 	"version": "0.1.0",
 	"description": "World time in the terminal, inspired by the Casio AE-1200WH.",
 	"type": "module",
@@ -44,5 +44,8 @@
 	"devDependencies": {
 		"@types/node": "^24.19.0",
 		"typescript": "^7.0.2"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

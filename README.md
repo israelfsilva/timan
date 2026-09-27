@@ -9,7 +9,7 @@ World time in the terminal, inspired by the Casio AE-1200WH.
 **npm** (Node.js 18.3 or later):
 
 ```sh
-npm install -g timan
+npm install -g @israelfsilva/timan
 ```
 
 **Homebrew** (macOS and Linux):
