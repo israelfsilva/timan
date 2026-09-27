@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runCalibration } from './calibrate.ts';
 import { type Config, ConfigError, UsageError, configPath, loadConfig } from './config.ts';
@@ -12,6 +13,7 @@ const USAGE = `uso:
   timan                       relógio mundial (TUI; tabela em pipe ou terminal < 60 colunas)
   timan --demo digital        mostra só o painel digital (para ajuste visual)
   timan --demo analog         calibra a proporção da célula: +/− ajusta, enter salva, esc sai
+  timan --version             mostra a versão
 
 teclas na TUI:
   ↑/↓        seleção na tabela (favoritos e catálogo)
@@ -22,6 +24,12 @@ teclas na TUI:
   m          mapa ↔ analógico, quando não cabem os dois lado a lado
   t          12/24h
   q, Ctrl+C  sai`;
+
+// package.json fica um nível acima tanto de src/ quanto de dist/.
+function version(): string {
+	const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+	return pkg.version;
+}
 
 function printTable(config: Config): void {
 	const rows = buildRows(config, localZone(), new Date());
@@ -44,10 +52,14 @@ function run(argv: string[]): void {
 	const { values, positionals } = parseArgs({
 		args: argv,
 		allowPositionals: true,
-		options: { help: { type: 'boolean', short: 'h' }, demo: { type: 'string' } },
+		options: { help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' }, demo: { type: 'string' } },
 	});
 	if (values.help) {
 		console.log(USAGE);
+		return;
+	}
+	if (values.version) {
+		console.log(`timan ${version()}`);
 		return;
 	}
 	if (values.demo !== undefined) {
