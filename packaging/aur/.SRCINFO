@@ -1,0 +1,15 @@
+pkgbase = timan
+	pkgdesc = World time in the terminal, inspired by the Casio AE-1200WH
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/israelfsilva/timan
+	arch = any
+	license = MIT
+	makedepends = npm
+	makedepends = jq
+	depends = nodejs
+	noextract = timan-0.1.0.tgz
+	source = timan-0.1.0.tgz::https://registry.npmjs.org/@israelfsilva/timan/-/timan-0.1.0.tgz
+	sha256sums = 3a9204811b2a0348efa510079281f8000aa1fd97aea88a6542bdb4f452026ced
+
+pkgname = timan
