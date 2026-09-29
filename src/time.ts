@@ -1,9 +1,9 @@
-// Fusos via Intl, sem dependências. Tudo parte do offset em minutos:
-// hora de parede = instante UTC + offset, e a data civil sai dela.
+// Time zones via Intl, no dependencies. Everything starts from the offset in minutes:
+// wall time = UTC instant + offset, and the civil date comes from it.
 
-// O ICU embutido no Node ainda usa nomes antigos para algumas zonas
-// (Intl.supportedValuesOf lista Asia/Calcutta, não Asia/Kolkata).
-// Mapeia para o nome atual da IANA.
+// The ICU bundled with Node still uses old names for some zones
+// (Intl.supportedValuesOf lists Asia/Calcutta, not Asia/Kolkata).
+// Maps them to the current IANA name.
 const RENAMES: Record<string, string> = {
 	'Africa/Asmera': 'Africa/Asmara',
 	'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
@@ -41,22 +41,22 @@ function offsetFormatter(zone: string): Intl.DateTimeFormat {
 	return f;
 }
 
-// Offset UTC da zona no instante dado, em minutos (Nepal = +345).
+// The zone's UTC offset at the given instant, in minutes (Nepal = +345).
 export function offsetMinutes(zone: string, at: Date): number {
 	const name = offsetFormatter(zone).formatToParts(at).find((p) => p.type === 'timeZoneName')?.value;
 	const m = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(name ?? '');
-	if (!m) throw new Error(`offset inesperado para ${zone}: ${name}`);
+	if (!m) throw new Error(`unexpected offset for ${zone}: ${name}`);
 	if (!m[1]) return 0;
 	const minutes = Number(m[2]) * 60 + Number(m[3]);
 	return m[1] === '-' ? -minutes : minutes;
 }
 
-// Date cujos campos UTC (getUTCHours, getUTCDate...) são a hora de parede com o offset dado.
+// Date whose UTC fields (getUTCHours, getUTCDate...) are the wall time at the given offset.
 export function wallClockAt(at: Date, offset: number): Date {
 	return new Date(at.getTime() + offset * 60_000);
 }
 
-// Date cujos campos UTC (getUTCHours, getUTCDate...) são a hora de parede na zona.
+// Date whose UTC fields (getUTCHours, getUTCDate...) are the wall time in the zone.
 export function wallClock(zone: string, at: Date): Date {
 	return wallClockAt(at, offsetMinutes(zone, at));
 }
@@ -65,31 +65,31 @@ export function diffMinutes(zone: string, t0: string, at: Date): number {
 	return offsetMinutes(zone, at) - offsetMinutes(t0, at);
 }
 
-// Diferença de datas civis entre dois offsets no mesmo instante (−1, 0, +1), não derivada de horas.
+// Civil date difference between two offsets at the same instant (−1, 0, +1), not derived from hours.
 export function civilDayDiff(offset: number, t0Offset: number, at: Date): number {
 	const civil = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 	return (civil(wallClockAt(at, offset)) - civil(wallClockAt(at, t0Offset))) / 86_400_000;
 }
 
-// Diferença de datas civis entre a zona e o T0 (−1, 0, +1), não derivada de horas.
+// Civil date difference between the zone and T0 (−1, 0, +1), not derived from hours.
 export function dayDiff(zone: string, t0: string, at: Date): number {
 	return civilDayDiff(offsetMinutes(zone, at), offsetMinutes(t0, at), at);
 }
 
-// Override de DST por zona: auto segue a IANA; on/off forçam o offset de verão/padrão.
+// Per-zone DST override: auto follows IANA; on/off force the summer/standard offset.
 export type DstMode = 'auto' | 'on' | 'off';
 
 export const DST_MODES: readonly DstMode[] = ['auto', 'on', 'off'];
 
-// Offsets padrão e de verão, derivados da própria zona em 1º de janeiro e 1º de julho:
-// o menor é o padrão, o que cobre o hemisfério sul. std === dst → zona sem DST.
+// Standard and summer offsets, derived from the zone itself on January 1 and July 1:
+// the smaller one is standard, which covers the southern hemisphere. std === dst → zone without DST.
 export function dstOffsets(zone: string, year: number): { std: number; dst: number } {
 	const jan = offsetMinutes(zone, new Date(Date.UTC(year, 0, 1)));
 	const jul = offsetMinutes(zone, new Date(Date.UTC(year, 6, 1)));
 	return { std: Math.min(jan, jul), dst: Math.max(jan, jul) };
 }
 
-// Offset que vale para exibição, diferença, dia civil e mapa.
+// Offset used for display, difference, civil day and the map.
 export function effectiveOffset(zone: string, at: Date, mode: DstMode): number {
 	if (mode === 'auto') return offsetMinutes(zone, at);
 	const { std, dst } = dstOffsets(zone, at.getUTCFullYear());
@@ -98,8 +98,8 @@ export function effectiveOffset(zone: string, at: Date, mode: DstMode): number {
 
 export type DstLabel = '' | 'DST' | 'DST*' | 'STD*';
 
-// DST = auto e em horário de verão; DST*/STD* = forçado; vazio = auto em horário
-// padrão, ou zona sem DST (onde o override não tem efeito).
+// DST = auto and in summer time; DST*/STD* = forced; empty = auto in standard
+// time, or a zone without DST (where the override has no effect).
 export function dstLabel(zone: string, at: Date, mode: DstMode): DstLabel {
 	const { std, dst } = dstOffsets(zone, at.getUTCFullYear());
 	if (std === dst) return '';
@@ -108,7 +108,7 @@ export function dstLabel(zone: string, at: Date, mode: DstMode): DstLabel {
 	return offsetMinutes(zone, at) === dst ? 'DST' : '';
 }
 
-// −03:00, +05:45 (com hífen ASCII; quem exibe decide o sinal).
+// −03:00, +05:45 (with an ASCII hyphen; the caller decides the sign).
 export function formatOffset(minutes: number): string {
 	const abs = Math.abs(minutes);
 	const hh = String(Math.floor(abs / 60)).padStart(2, '0');
@@ -127,7 +127,7 @@ export function formatDiff(minutes: number): string {
 
 export type Clock = '12h' | '24h';
 
-// 9:08 PM / 21:08, a partir de um wallClock.
+// 9:08 PM / 21:08, from a wallClock.
 export function formatClock(wall: Date, clock: Clock, seconds = false): string {
 	const h = wall.getUTCHours();
 	const mm = String(wall.getUTCMinutes()).padStart(2, '0');
@@ -140,20 +140,20 @@ const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-// FRI 25, a partir de um wallClock.
+// FRI 25, from a wallClock.
 export function formatDay(wall: Date): string {
 	return `${WEEKDAYS[wall.getUTCDay()]} ${wall.getUTCDate()}`;
 }
 
-// FRI 25 SEP 2026, a partir de um wallClock.
+// FRI 25 SEP 2026, from a wallClock.
 export function formatDate(wall: Date): string {
 	return `${formatDay(wall)} ${MONTHS[wall.getUTCMonth()]} ${wall.getUTCFullYear()}`;
 }
 
-// Cada locale só conhece as abreviações da sua região (en-US tem EDT, en-GB tem BST).
+// Each locale only knows its own region's abbreviations (en-US has EDT, en-GB has BST).
 const ABBR_LOCALES = ['en-US', 'en-GB', 'en-AU', 'en-IN', 'en-NZ', 'en-ZA', 'en-HK', 'en-SG'];
 
-// Abreviação (EDT, BST, IST) quando o ICU conhece uma; undefined se ele só sabe "GMT-3".
+// Abbreviation (EDT, BST, IST) when ICU knows one; undefined if it only knows "GMT-3".
 export function zoneAbbr(zone: string, at: Date): string | undefined {
 	for (const locale of ABBR_LOCALES) {
 		const f = new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: 'short' });
@@ -173,9 +173,9 @@ export function localZone(): string {
 	return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-// Valida um ID IANA e devolve a grafia a gravar, ou undefined se inválido.
-// Aceita o que o usuário digitou (inclusive aliases como US/Eastern), corrigindo
-// só maiúsculas; rejeita offsets fixos como "+03:00", que o Intl também aceita.
+// Validates an IANA ID and returns the spelling to save, or undefined if invalid.
+// Accepts what the user typed (including aliases like US/Eastern), fixing only
+// case; rejects fixed offsets like "+03:00", which Intl also accepts.
 export function normalizeZone(input: string): string | undefined {
 	if (!/^[A-Za-z]/.test(input)) return undefined;
 	let resolved: string;

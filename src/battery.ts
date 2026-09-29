@@ -2,16 +2,16 @@ import { execFile } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { uptime } from 'node:os';
 
-// Linha embaixo do digital, em alusão ao "10 YEAR BATTERY" impresso no AE-1200WH:
-//   87% · 4 HOUR BATTERY         descarregando, com estimativa
-//   87% BATTERY · CHARGING       carregando (ou · AC POWER, na tomada sem carregar)
-//   12 DAY UPTIME                sem bateria (desktop) ou sem como ler: o uptime no lugar
-// A leitura é assíncrona e esporádica; a tela só formata o último valor.
+// Line below the digital clock, a nod to the "10 YEAR BATTERY" printed on the AE-1200WH:
+//   87% · 4 HOUR BATTERY         discharging, with an estimate
+//   87% BATTERY · CHARGING       charging (or · AC POWER, plugged in but not charging)
+//   12 DAY UPTIME                no battery (desktop) or no way to read it: uptime instead
+// Reading is async and occasional; the screen only formats the latest value.
 
 export type Battery = { kind: 'battery'; percent: number; state: 'discharging' | 'charging' | 'ac'; minutes?: number };
 export type Power = Battery | { kind: 'uptime'; seconds: number };
 
-// "10 YEAR" / "4 HOUR" / "35 MINUTE": a maior unidade inteira, no singular como no relógio.
+// "10 YEAR" / "4 HOUR" / "35 MINUTE": the largest whole unit, singular as on the watch.
 function span(seconds: number): string {
 	const units: [string, number][] = [
 		['YEAR', 365 * 86400],
@@ -43,8 +43,8 @@ export function parsePmset(out: string): Battery | undefined {
 	return { kind: 'battery', percent: Number(m[1]), state, ...(state === 'discharging' && minutes !== undefined && { minutes }) };
 }
 
-// Linux, /sys/class/power_supply/BAT*/: capacity e status; a estimativa sai de energia/potência
-// (µWh/µW) ou carga/corrente (µAh/µA), o que o driver expuser.
+// Linux, /sys/class/power_supply/BAT*/: capacity and status; the estimate comes from energy/power
+// (µWh/µW) or charge/current (µAh/µA), whichever the driver exposes.
 export function parseSysfs(files: Record<string, string | undefined>): Battery | undefined {
 	const percent = Number(files.capacity);
 	if (!files.capacity || Number.isNaN(percent)) return undefined;
@@ -73,13 +73,13 @@ async function readLinux(): Promise<Battery | undefined> {
 	return undefined;
 }
 
-// Bateria, se houver e der para ler; senão o uptime. Nunca rejeita.
+// Battery, if there is one and it can be read; otherwise uptime. Never rejects.
 export async function readPower(): Promise<Power> {
 	try {
 		const p = process.platform === 'darwin' ? parsePmset(await run('pmset', ['-g', 'batt'])) : process.platform === 'linux' ? await readLinux() : undefined;
 		if (p) return p;
 	} catch {
-		// sem pmset, sem sysfs: cai no uptime
+		// no pmset, no sysfs: fall back to uptime
 	}
 	return { kind: 'uptime', seconds: uptime() };
 }

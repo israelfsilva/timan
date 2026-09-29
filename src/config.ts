@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { ASPECT_MAX, ASPECT_MIN } from './aspect.ts';
 import { type Clock, DST_MODES, type DstMode, normalizeZone } from './time.ts';
 
-// T0 é sempre a zona local do sistema e não é gravado; slots são T1..T9 por posição.
+// T0 is always the system's local zone and is not saved; slots are T1..T9 by position.
 export interface Slot {
 	code: string;
 	zone: string;
@@ -16,9 +16,9 @@ export interface Config {
 	version: 1;
 	clock: Clock;
 	local_name?: string;
-	local_dst?: DstMode; // override de DST do T0; ausente = auto
+	local_dst?: DstMode; // DST override for T0; absent = auto
 	slots: Slot[];
-	// cellAspect: k calibrado (aspect.ts); ausente = pergunta ao terminal.
+	// cellAspect: calibrated k (aspect.ts); absent = ask the terminal.
 	ui: { showZones: boolean; cellAspect?: number };
 }
 
@@ -38,9 +38,9 @@ export function defaultConfig(): Config {
 	};
 }
 
-// Config ilegível ou inválido: exit 1.
+// Unreadable or invalid config: exit 1.
 export class ConfigError extends Error {}
-// Argumentos errados: exit 2.
+// Bad arguments: exit 2.
 export class UsageError extends Error {}
 
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -48,7 +48,7 @@ export function configPath(env: NodeJS.ProcessEnv = process.env): string {
 	return join(base, 'timan', 'config.json');
 }
 
-// Cria o arquivo com os defaults só se ele não existir; nunca sobrescreve um existente.
+// Creates the file with the defaults only if it doesn't exist; never overwrites an existing one.
 export function loadConfig(path: string): Config {
 	let text: string;
 	try {
@@ -72,9 +72,9 @@ export function loadConfig(path: string): Config {
 	return validate(data, path);
 }
 
-// Estrito na estrutura. A zona de cada slot não é checada aqui: zona desconhecida
-// derruba só a própria linha (quem exibe avisa). Campos novos (dst, local_dst, ui)
-// são opcionais no arquivo: ausentes viram o padrão, e o próximo save grava a forma completa.
+// Strict about structure. A slot's zone isn't checked here: an unknown zone only
+// takes down its own row (the caller warns). Newer fields (dst, local_dst, ui) are
+// optional in the file: missing ones get the default, and the next save writes the full form.
 function validate(data: unknown, path: string): Config {
 	const fail = (what: string) => new ConfigError(`${path}: ${what}`);
 	if (!isObject(data)) throw fail('expected a JSON object');
@@ -125,7 +125,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 	return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-// Grava em arquivo temporário e renomeia, para nunca deixar um config pela metade.
+// Writes to a temp file and renames, so a config is never left half-written.
 export function saveConfig(path: string, config: Config): void {
 	mkdirSync(dirname(path), { recursive: true });
 	const tmp = `${path}.${process.pid}.tmp`;
@@ -143,21 +143,21 @@ function checkSlot(config: Config, code: string, zone: string): Slot {
 	return { code: upper, zone: normalized, dst: 'auto' };
 }
 
-// As funções abaixo não mutam: devolvem um novo Config.
+// The functions below don't mutate: they return a new Config.
 
 export function addSlot(config: Config, code: string, zone: string): Config {
 	if (config.slots.length >= MAX_SLOTS) throw new UsageError(`slot limit of ${MAX_SLOTS} reached`);
 	return { ...config, slots: [...config.slots, checkSlot(config, code, zone)] };
 }
 
-// Remove e compacta: com T1..T4, rm T3 faz T4 virar T3.
+// Removes and compacts: with T1..T4, rm T3 turns T4 into T3.
 export function removeSlot(config: Config, n: number): Config {
 	if (n > config.slots.length) throw new UsageError(`T${n} does not exist`);
 	return { ...config, slots: config.slots.filter((_, i) => i !== n - 1) };
 }
 
-// Código de 3 letras derivado do nome, sem acento: SÃO PAULO → SAO, ST. JOHN'S → STJ.
-// Em colisão, primeira letra + duas outras em ordem; por fim, duas letras + A..Z.
+// 3-letter code derived from the name, without accents: SÃO PAULO → SAO, ST. JOHN'S → STJ.
+// On collision, first letter + two others in order; finally, two letters + A..Z.
 export function favoriteCode(name: string, taken: readonly string[]): string {
 	const used = new Set(taken.map((c) => c.toUpperCase()));
 	const l = name.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().replace(/[^A-Z]/g, '').padEnd(2, 'X');
@@ -167,7 +167,7 @@ export function favoriteCode(name: string, taken: readonly string[]): string {
 	return candidates.find((c) => c.length >= 2 && !used.has(c))!;
 }
 
-// Favorita uma zona no próximo slot livre, com o nome dado (o do catálogo).
+// Adds a zone as a favorite in the next free slot, with the given name (the catalog's).
 export function addFavorite(config: Config, zone: string, name: string): Config {
 	const added = addSlot(config, favoriteCode(name, config.slots.map((s) => s.code)), zone);
 	const slots = [...added.slots];
@@ -175,7 +175,7 @@ export function addFavorite(config: Config, zone: string, name: string): Config 
 	return { ...added, slots };
 }
 
-// Override de DST do Tn (T0 = local_dst, omitido quando auto).
+// DST override for Tn (T0 = local_dst, omitted when auto).
 export function setDst(config: Config, n: number, mode: DstMode): Config {
 	if (n === 0) {
 		const { local_dst: _, ...rest } = config;

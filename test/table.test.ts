@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { type Config, defaultConfig } from '../src/config.ts';
 import { CATALOG_REF, buildRows, renderTable, tableLines, zoneList } from '../src/table.ts';
 
-// 22:08:36 de sexta em São Paulo (o instante do mockup).
+// 22:08:36 on Friday in São Paulo (the mockup's instant).
 const AT = new Date('2026-09-26T01:08:36Z');
 const LOCAL = 'America/Sao_Paulo';
 
@@ -23,7 +23,7 @@ describe('renderTable', () => {
 		);
 	});
 
-	it('24h, nomes sobrescritos, meia hora, dia anterior e sinal Unicode', () => {
+	it('24h, overridden names, half hour, previous day and Unicode sign', () => {
 		const config: Config = {
 			version: 1,
 			clock: '24h',
@@ -46,7 +46,7 @@ describe('renderTable', () => {
 		);
 	});
 
-	it('zona desconhecida vira "?" só na própria linha', () => {
+	it('unknown zone becomes "?" only on its own row', () => {
 		const config: Config = { ...defaultConfig(), slots: [{ code: 'TYO', zone: 'Asia/Tokio', dst: 'auto' }, { code: 'NYC', zone: 'America/New_York', dst: 'auto' }] };
 		const rows = buildRows(config, LOCAL, AT);
 		assert.equal(rows[1]!.time, undefined);
@@ -61,8 +61,8 @@ describe('renderTable', () => {
 	});
 });
 
-describe('buildRows com override de DST', () => {
-	// 01:30 de sábado em São Paulo; 00:30 de sábado em New York (EDT).
+describe('buildRows with a DST override', () => {
+	// 01:30 Saturday in São Paulo; 00:30 Saturday in New York (EDT).
 	const at = new Date('2026-09-26T04:30:00Z');
 	const withNy = (dst: 'auto' | 'on' | 'off'): Config => ({
 		...defaultConfig(),
@@ -70,32 +70,32 @@ describe('buildRows com override de DST', () => {
 	});
 	const ny = (config: Config) => buildRows(config, LOCAL, at)[1]!.time!;
 
-	it('auto: hora IANA', () => {
+	it('auto: IANA time', () => {
 		const t = ny(withNy('auto'));
 		assert.deepEqual([t.offset, t.diff, t.day, t.wall.getUTCHours(), t.dstLabel], [-240, -60, 0, 0, 'DST']);
 	});
 
-	it('off força o padrão: muda diferença e dia civil', () => {
+	it('off forces standard: changes difference and civil day', () => {
 		const t = ny(withNy('off'));
 		assert.deepEqual([t.offset, t.diff, t.day, t.wall.getUTCHours(), t.wall.getUTCDate(), t.dstLabel], [-300, -120, -1, 23, 25, 'STD*']);
 	});
 
-	it('on fora do verão força o horário de verão', () => {
+	it('on outside summer forces summer time', () => {
 		const t = buildRows(withNy('on'), LOCAL, new Date('2026-01-15T12:00:00Z'))[1]!.time!;
 		assert.deepEqual([t.offset, t.diff, t.dstLabel], [-240, -60, 'DST*']);
 	});
 
-	it('local_dst mexe no T0 e na diferença de todas as linhas', () => {
+	it('local_dst affects T0 and the difference of every row', () => {
 		const rows = buildRows({ ...defaultConfig(), local_dst: 'on' }, 'America/New_York', new Date('2026-01-15T12:00:00Z'));
 		assert.equal(rows[0]!.time!.offset, -240);
 		assert.equal(rows[0]!.time!.dstLabel, 'DST*');
-		assert.equal(rows[1]!.time!.diff, -60); // New York em auto (−5) contra o T0 forçado (−4)
+		assert.equal(rows[1]!.time!.diff, -60); // New York on auto (−5) against the forced T0 (−4)
 		assert.equal(rows[2]!.time!.diff, 240); // London (0)
 	});
 });
 
 describe('zoneList', () => {
-	it('favoritos e depois o catálogo sem as favoritas, pelo offset atual', () => {
+	it('favorites and then the catalog without the favorites, by current offset', () => {
 		const { rows, favorites } = zoneList(defaultConfig(), LOCAL, AT);
 		assert.equal(favorites, 5);
 		const catalog = rows.slice(favorites);
@@ -107,15 +107,15 @@ describe('zoneList', () => {
 		assert.deepEqual(offsets, [...offsets].sort((a, b) => a - b));
 	});
 
-	it('catálogo com diferença contra o T0 efetivo', () => {
+	it('catalog with difference against the effective T0', () => {
 		const { rows } = zoneList({ ...defaultConfig(), local_dst: 'on' }, 'America/New_York', new Date('2026-01-15T12:00:00Z'));
 		const chicago = rows.find((r) => r.zone === 'America/Chicago')!;
-		assert.equal(chicago.time!.diff, -120); // Chicago −6 contra o T0 forçado em −4
+		assert.equal(chicago.time!.diff, -120); // Chicago −6 against the forced T0 at −4
 	});
 });
 
-describe('tableLines com DST', () => {
-	it('coluna do indicador só quando pedida', () => {
+describe('tableLines with DST', () => {
+	it('indicator column only when asked for', () => {
 		const rows = buildRows(defaultConfig(), LOCAL, AT);
 		assert.ok(tableLines(rows, '12h', { dst: true })[1]!.endsWith('FRI 25      DST'));
 		assert.ok(tableLines(rows, '12h')[1]!.endsWith('FRI 25'));

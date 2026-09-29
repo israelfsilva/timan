@@ -26,30 +26,30 @@ function tempPath(): string {
 const codes = (c: { slots: { code: string }[] }) => c.slots.map((s) => s.code);
 
 describe('configPath', () => {
-	it('respeita XDG_CONFIG_HOME', () => {
+	it('honors XDG_CONFIG_HOME', () => {
 		assert.equal(configPath({ XDG_CONFIG_HOME: '/x' }), '/x/timan/config.json');
 	});
 
-	it('usa ~/.config sem XDG_CONFIG_HOME', () => {
+	it('uses ~/.config without XDG_CONFIG_HOME', () => {
 		assert.match(configPath({}), /\/\.config\/timan\/config\.json$/);
 	});
 });
 
 describe('loadConfig', () => {
-	it('cria os defaults na primeira execução', () => {
+	it('creates the defaults on first run', () => {
 		const path = tempPath();
 		assert.deepEqual(loadConfig(path), defaultConfig());
 		assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), defaultConfig());
 	});
 
-	it('lê o que foi salvo', () => {
+	it('reads what was saved', () => {
 		const path = tempPath();
 		const config = { ...defaultConfig(), clock: '24h' as const, local_name: 'SÃO PAULO' };
 		saveConfig(path, config);
 		assert.deepEqual(loadConfig(path), config);
 	});
 
-	it('JSON corrompido é erro com linha e coluna, e o arquivo não é tocado', () => {
+	it('corrupt JSON is an error with line and column, and the file is left alone', () => {
 		const path = tempPath();
 		saveConfig(path, defaultConfig());
 		const broken = '{\n\t"version": 1,\n}\n';
@@ -62,7 +62,7 @@ describe('loadConfig', () => {
 		assert.equal(readFileSync(path, 'utf8'), broken);
 	});
 
-	it('estrutura inválida é erro', () => {
+	it('invalid structure is an error', () => {
 		const path = tempPath();
 		saveConfig(path, defaultConfig());
 		writeFileSync(path, JSON.stringify({ version: 2, clock: '12h', slots: [] }));
@@ -71,14 +71,14 @@ describe('loadConfig', () => {
 		assert.throws(() => loadConfig(path), /T1/);
 	});
 
-	it('zona desconhecida não é erro de config', () => {
+	it('unknown zone is not a config error', () => {
 		const path = tempPath();
 		const config: Config = { ...defaultConfig(), slots: [{ code: 'TYO', zone: 'Asia/Tokio', dst: 'auto' }] };
 		saveConfig(path, config);
 		assert.deepEqual(loadConfig(path), config);
 	});
 
-	it('config antigo, sem dst e sem ui, carrega com os padrões e não é reescrito', () => {
+	it('old config, without dst and ui, loads with the defaults and is not rewritten', () => {
 		const path = tempPath();
 		saveConfig(path, defaultConfig());
 		const old = JSON.stringify({ version: 1, clock: '12h', slots: [{ code: 'NYC', zone: 'America/New_York' }] });
@@ -90,7 +90,7 @@ describe('loadConfig', () => {
 		assert.equal(readFileSync(path, 'utf8'), old);
 	});
 
-	it('ida e volta com dst, local_dst e ui', () => {
+	it('round trip with dst, local_dst and ui', () => {
 		const path = tempPath();
 		const config: Config = {
 			...defaultConfig(),
@@ -102,7 +102,7 @@ describe('loadConfig', () => {
 		assert.deepEqual(loadConfig(path), config);
 	});
 
-	it('dst, local_dst e ui inválidos são erro', () => {
+	it('invalid dst, local_dst and ui are errors', () => {
 		const path = tempPath();
 		saveConfig(path, defaultConfig());
 		const base = { version: 1, clock: '12h', slots: [{ code: 'NYC', zone: 'America/New_York' }] };
@@ -121,12 +121,12 @@ describe('loadConfig', () => {
 });
 
 describe('slots', () => {
-	it('add acrescenta no fim, com código em maiúsculas e ID como digitado', () => {
+	it('add appends at the end, with the code uppercased and the ID as typed', () => {
 		const c = addSlot(defaultConfig(), 'bom', 'Asia/Kolkata');
 		assert.deepEqual(c.slots.at(-1), { code: 'BOM', zone: 'Asia/Kolkata', dst: 'auto' });
 	});
 
-	it('add valida código, duplicata, zona e limite', () => {
+	it('add validates code, duplicate, zone and limit', () => {
 		const c = defaultConfig();
 		assert.throws(() => addSlot(c, 'X', 'Asia/Tokyo'), /invalid code/);
 		assert.throws(() => addSlot(c, 'lon', 'Europe/Paris'), /already used by T2/);
@@ -138,12 +138,12 @@ describe('slots', () => {
 		assert.throws(() => addSlot(full, 'FF', 'UTC'), /slot limit/);
 	});
 
-	it('rm compacta', () => {
+	it('rm compacts', () => {
 		assert.deepEqual(codes(removeSlot(defaultConfig(), 3)), ['NYC', 'LON', 'HKG']);
 		assert.throws(() => removeSlot(defaultConfig(), 5), /T5 does not exist/);
 	});
 
-	it('não muta o config original', () => {
+	it('does not mutate the original config', () => {
 		const c = defaultConfig();
 		addSlot(c, 'PAR', 'Europe/Paris');
 		removeSlot(c, 1);
@@ -151,8 +151,8 @@ describe('slots', () => {
 	});
 });
 
-describe('favoritos', () => {
-	it('código derivado do nome, sem acento, único', () => {
+describe('favorites', () => {
+	it('code derived from the name, without accents, unique', () => {
 		assert.equal(favoriteCode('SÃO PAULO', []), 'SAO');
 		assert.equal(favoriteCode("ST. JOHN'S", []), 'STJ');
 		assert.equal(favoriteCode('LOS ANGELES', ['LOS']), 'LOA');
@@ -160,15 +160,15 @@ describe('favoritos', () => {
 		assert.equal(favoriteCode('NOUMÉA', ['nou']), 'NOM');
 	});
 
-	it('addFavorite ocupa o próximo slot com o nome do catálogo', () => {
+	it('addFavorite takes the next slot with the catalog name', () => {
 		const c = addFavorite(defaultConfig(), 'America/Sao_Paulo', 'SÃO PAULO');
 		assert.deepEqual(c.slots.at(-1), { code: 'SAO', zone: 'America/Sao_Paulo', dst: 'auto', name: 'SÃO PAULO' });
 		assert.equal(c.slots.length, 5);
 	});
 });
 
-describe('setDst e nextDst', () => {
-	it('slot e T0; T0 em auto não grava local_dst', () => {
+describe('setDst and nextDst', () => {
+	it('slot and T0; T0 on auto does not save local_dst', () => {
 		assert.equal(setDst(defaultConfig(), 2, 'on').slots[1]!.dst, 'on');
 		assert.equal(setDst(defaultConfig(), 0, 'off').local_dst, 'off');
 		assert.ok(!('local_dst' in setDst({ ...defaultConfig(), local_dst: 'on' }, 0, 'auto')));
