@@ -61,8 +61,8 @@ describe('calibrationFrame', () => {
 		const at = new Date('2026-09-25T10:08:36Z');
 		const one = calibrationFrame(at, 1, 80, 30);
 		const tall = calibrationFrame(at, 1.2, 80, 30);
-		assert.ok(one.some((l) => l.includes(' k 1,00 ─')));
-		assert.ok(tall.some((l) => l.includes(' k 1,20 ─')));
+		assert.ok(one.some((l) => l.includes(' k 1.00 ─')));
+		assert.ok(tall.some((l) => l.includes(' k 1.20 ─')));
 		const box = (ls: string[]) => ls.filter((l) => /[│╭╰]/.test(l)).length;
 		assert.equal(box(one), 16);
 		assert.equal(box(tall), 14);

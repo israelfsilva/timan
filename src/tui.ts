@@ -110,14 +110,14 @@ function truncate(s: string, width: number): string {
 function shortcuts(layout: Layout): [string, number][] {
 	const zones = layout.zonesRows > 0;
 	const items: [string, number | undefined][] = [
-		['↑↓ zona', zones ? 1 : undefined],
-		['←→ favorito', 2],
-		['f favoritar', zones ? 4 : 6],
+		['↑↓ zone', zones ? 1 : undefined],
+		['←→ favorite', 2],
+		['f favorite', zones ? 4 : 6],
 		['d DST', 5],
-		['z zonas', zones ? 6 : 1],
-		['m mapa/analógico', layout.toggle ? 3 : undefined],
+		['z zones', zones ? 6 : 1],
+		['m map/analog', layout.toggle ? 3 : undefined],
 		['t 12/24', 7],
-		['q sair', 0],
+		['q quit', 0],
 	];
 	return items.filter((i): i is [string, number] => i[1] !== undefined);
 }
@@ -184,7 +184,7 @@ export function renderScreen(state: TuiState, local: string, at: Date, cols: num
 
 	if (layout === undefined) {
 		const table = tableLines(data.slice(0, favorites), state.config.clock);
-		return [...table.map((l) => truncate(l, cols)), '', paint(truncate('amplie o terminal para ver o mapa', cols), { fg: 'secondary' })];
+		return [...table.map((l) => truncate(l, cols)), '', paint(truncate('enlarge the terminal to see the map', cols), { fg: 'secondary' })];
 	}
 	const sel = data[state.selected] ?? data[0]!;
 	const out: string[] = Array(layout.padTop).fill(' '.repeat(cols));
@@ -245,9 +245,9 @@ export function toggleFavorite(config: Config, local: string, at: Date, selected
 	const { rows, favorites } = zoneList(config, local, at);
 	const row = rows[selected];
 	if (!row) return {};
-	if (selected === 0) return { notice: 'T0 é a zona local; não sai dos favoritos' };
+	if (selected === 0) return { notice: 'T0 is the local zone; it stays a favorite' };
 	if (selected < favorites) return { config: removeSlot(config, selected) };
-	if (config.slots.length >= MAX_SLOTS) return { notice: `limite de ${MAX_SLOTS} favoritos` };
+	if (config.slots.length >= MAX_SLOTS) return { notice: `limit of ${MAX_SLOTS} favorites` };
 	return { config: addFavorite(config, row.zone, row.name) };
 }
 
@@ -256,9 +256,9 @@ export function cycleDst(config: Config, local: string, at: Date, selected: numb
 	const { rows, favorites } = zoneList(config, local, at);
 	const row = rows[selected];
 	if (!row) return {};
-	if (selected >= favorites) return { notice: 'DST só em favoritos (f para favoritar)' };
+	if (selected >= favorites) return { notice: 'DST is for favorites only (f to add one)' };
 	const { std, dst } = dstOffsets(row.zone, at.getUTCFullYear());
-	if (std === dst) return { notice: `${row.name}: sem horário de verão` };
+	if (std === dst) return { notice: `${row.name}: no daylight saving time` };
 	return { config: setDst(config, selected, nextDst(row.dst)) };
 }
 

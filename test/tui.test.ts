@@ -86,12 +86,12 @@ describe('computeLayout', () => {
 });
 
 describe('fitFooter', () => {
-	const items: [string, number][] = [['a aa', 2], ['b bb', 1], ['c cc', 3], ['q sair', 0]];
+	const items: [string, number][] = [['a aa', 2], ['b bb', 1], ['c cc', 3], ['q quit', 0]];
 	it('afrouxa o separador e depois tira os de menor prioridade', () => {
-		assert.equal(fitFooter(items, 40), 'a aa  ·  b bb  ·  c cc  ·  q sair');
-		assert.equal(fitFooter(items, 30), 'a aa · b bb · c cc · q sair');
-		assert.equal(fitFooter(items, 25), 'a aa  ·  b bb  ·  q sair');
-		assert.equal(fitFooter(items, 6), 'q sair');
+		assert.equal(fitFooter(items, 40), 'a aa  ·  b bb  ·  c cc  ·  q quit');
+		assert.equal(fitFooter(items, 30), 'a aa · b bb · c cc · q quit');
+		assert.equal(fitFooter(items, 25), 'a aa  ·  b bb  ·  q quit');
+		assert.equal(fitFooter(items, 6), 'q quit');
 	});
 });
 
@@ -113,10 +113,10 @@ describe('renderScreen', () => {
 		assert.ok(lines[26]!.startsWith('│ ★ T0  SAO PAULO'));
 		assert.ok(lines[27]!.startsWith('│ ▸ T1  NEW YORK     −04:00     −1h   9:08:36 PM  FRI 25      DST'));
 		// Atalhos fora da caixa, centralizados, com uma linha em branco antes e depois.
-		assert.ok(lines[36]!.startsWith('╰─') && !lines[36]!.includes('q sair'));
+		assert.ok(lines[36]!.startsWith('╰─') && !lines[36]!.includes('q quit'));
 		assert.equal(lines[37]!.trim(), '');
 		assert.equal(lines[39]!.trim(), '');
-		const footer = '↑↓ zona  ·  ←→ favorito  ·  f favoritar  ·  d DST  ·  z zonas  ·  t 12/24  ·  q sair';
+		const footer = '↑↓ zone  ·  ←→ favorite  ·  f favorite  ·  d DST  ·  z zones  ·  t 12/24  ·  q quit';
 		assert.equal(lines[38]!.trim(), footer);
 		assert.ok(Math.abs(lines[38]!.indexOf('↑') - (140 - lines[38]!.trimEnd().length)) <= 1);
 	});
@@ -139,14 +139,14 @@ describe('renderScreen', () => {
 		const sixty = lines.findIndex((l) => l.includes('60⠀'));
 		assert.equal(sixty, 1 + Math.floor((28 - 2 - 14) / 2)); // 14 linhas no meio de 26
 		assert.ok(lines[28]!.includes('╭─ digital ─'));
-		assert.ok(lines[38]!.includes('z zonas')); // atalhos embaixo
+		assert.ok(lines[38]!.includes('z zones')); // atalhos embaixo
 	});
 
 	it('70 colunas: um painel só em cima, m troca qual, e o digital leva a info', () => {
 		const map = screen(defaultConfig(), 1, 70, 40, 'map');
 		assertFills(map, 70, 40);
 		assert.ok(map[0]!.startsWith('╭─ map ─') && !map[0]!.includes('analog'));
-		assert.ok(map[38]!.includes('m mapa/analógico'));
+		assert.ok(map[38]!.includes('m map/analog'));
 		assert.ok(map[16]!.startsWith('╭─ digital ─'));
 		assert.equal(map[17]!.slice(1, -1).trim(), 'T1 · NEW YORK · UTC−04:00 · EDT · DST');
 		const analog = screen(defaultConfig(), 1, 70, 40, 'analog');
@@ -161,15 +161,15 @@ describe('renderScreen', () => {
 		assertFills(lines, 80, 22);
 		assert.ok(lines[0]!.startsWith('╭─ map ─'));
 		assert.ok(!lines.some((l) => l.includes('╭─ zones') || l.includes('╭─ analog')));
-		assert.ok(!lines[20]!.includes('m mapa'));
+		assert.ok(!lines[20]!.includes('m map'));
 	});
 
 	it('pouca altura: só info + digital, centralizados, e os atalhos embaixo', () => {
 		const lines = screen(defaultConfig(), 1, 100, 14);
 		assertFills(lines, 100, 14);
 		assert.ok(lines[1]!.startsWith('╭─ T1 ─') && lines[1]!.includes('╭─ digital ─'));
-		assert.ok(lines[9]!.startsWith('╰───') && !lines[9]!.includes('q sair'));
-		assert.ok(lines[12]!.includes('q sair'));
+		assert.ok(lines[9]!.startsWith('╰───') && !lines[9]!.includes('q quit'));
+		assert.ok(lines[12]!.includes('q quit'));
 	});
 
 	it('catálogo sem as favoritas, e a seleção nele mexe no relógio e no mapa', () => {
@@ -192,9 +192,9 @@ describe('renderScreen', () => {
 	});
 
 	it('aviso no lugar dos atalhos', () => {
-		const lines = screen(defaultConfig(), 0, 140, 40, 'map', 'T0 é a zona local; não sai dos favoritos');
-		assert.ok(lines[38]!.includes(' T0 é a zona local; não sai dos favoritos '));
-		assert.ok(!lines[38]!.includes('q sair'));
+		const lines = screen(defaultConfig(), 0, 140, 40, 'map', 'T0 is the local zone; it stays a favorite');
+		assert.ok(lines[38]!.includes(' T0 is the local zone; it stays a favorite '));
+		assert.ok(!lines[38]!.includes('q quit'));
 	});
 
 	it('24h: sem AM/PM', () => {
@@ -217,7 +217,7 @@ describe('renderScreen', () => {
 		const lines = screen(config, 1, 140, 40);
 		assertFills(lines, 140, 40);
 		assert.equal(lines[20]!.slice(1, 32).trim(), 'TOKIO');
-		assert.equal(lines[23]!.slice(1, 32).trim(), 'zona desconhecida');
+		assert.equal(lines[23]!.slice(1, 32).trim(), 'unknown zone');
 	});
 
 	it('terminal pequeno cai na tabela só dos favoritos', () => {
@@ -225,7 +225,7 @@ describe('renderScreen', () => {
 			const lines = screen(defaultConfig(), 1, cols, rows);
 			assert.equal(lines[0], 'T0  SAO PAULO  −03:00  local  10:08 PM  FRI 25');
 			assert.equal(lines.length, 5 + 2);
-			assert.ok(lines.at(-1)!.includes('amplie o terminal'));
+			assert.ok(lines.at(-1)!.includes('enlarge the terminal'));
 		}
 	});
 });
@@ -243,10 +243,10 @@ describe('toggleFavorite', () => {
 	});
 
 	it('T0 protegido e limite de slots, com aviso e sem config novo', () => {
-		assert.deepEqual(toggleFavorite(defaultConfig(), LOCAL, AT, 0), { notice: 'T0 é a zona local; não sai dos favoritos' });
+		assert.deepEqual(toggleFavorite(defaultConfig(), LOCAL, AT, 0), { notice: 'T0 is the local zone; it stays a favorite' });
 		let full = defaultConfig();
 		while (full.slots.length < 9) full = toggleFavorite(full, LOCAL, AT, full.slots.length + 1).config!;
-		assert.deepEqual(toggleFavorite(full, LOCAL, AT, 10), { notice: 'limite de 9 favoritos' });
+		assert.deepEqual(toggleFavorite(full, LOCAL, AT, 10), { notice: 'limit of 9 favorites' });
 	});
 });
 
@@ -259,8 +259,8 @@ describe('cycleDst', () => {
 	});
 
 	it('sem efeito no catálogo e em zona sem DST', () => {
-		assert.equal(cycleDst(defaultConfig(), LOCAL, AT, 5).notice, 'DST só em favoritos (f para favoritar)');
-		assert.equal(cycleDst(defaultConfig(), LOCAL, AT, 3).notice, 'TOKYO: sem horário de verão');
+		assert.equal(cycleDst(defaultConfig(), LOCAL, AT, 5).notice, 'DST is for favorites only (f to add one)');
+		assert.equal(cycleDst(defaultConfig(), LOCAL, AT, 3).notice, 'TOKYO: no daylight saving time');
 		assert.equal(cycleDst(defaultConfig(), LOCAL, AT, 0).config, undefined); // São Paulo não tem DST
 	});
 });

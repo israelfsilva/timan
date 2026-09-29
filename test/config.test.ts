@@ -107,12 +107,12 @@ describe('loadConfig', () => {
 		saveConfig(path, defaultConfig());
 		const base = { version: 1, clock: '12h', slots: [{ code: 'NYC', zone: 'America/New_York' }] };
 		for (const [bad, msg] of [
-			[{ ...base, slots: [{ ...base.slots[0], dst: 'yes' }] }, /T1: dst deve ser/],
-			[{ ...base, local_dst: true }, /local_dst deve ser/],
-			[{ ...base, ui: { showZones: 'no' } }, /ui deve ser/],
-			[{ ...base, ui: [] }, /ui deve ser/],
-			[{ ...base, ui: { cellAspect: '1.2' } }, /cellAspect deve ser/],
-			[{ ...base, ui: { cellAspect: 3 } }, /cellAspect deve ser/],
+			[{ ...base, slots: [{ ...base.slots[0], dst: 'yes' }] }, /T1: dst must be/],
+			[{ ...base, local_dst: true }, /local_dst must be/],
+			[{ ...base, ui: { showZones: 'no' } }, /ui must be/],
+			[{ ...base, ui: [] }, /ui must be/],
+			[{ ...base, ui: { cellAspect: '1.2' } }, /cellAspect must be/],
+			[{ ...base, ui: { cellAspect: 3 } }, /cellAspect must be/],
 		] as const) {
 			writeFileSync(path, JSON.stringify(bad));
 			assert.throws(() => loadConfig(path), msg);
@@ -128,19 +128,19 @@ describe('slots', () => {
 
 	it('add valida código, duplicata, zona e limite', () => {
 		const c = defaultConfig();
-		assert.throws(() => addSlot(c, 'X', 'Asia/Tokyo'), /código inválido/);
-		assert.throws(() => addSlot(c, 'lon', 'Europe/Paris'), /já usado em T2/);
-		assert.throws(() => addSlot(c, 'PAR', 'Europe/Pariss'), /zona desconhecida/);
-		assert.throws(() => addSlot(c, 'OFF', '+03:00'), /zona desconhecida/);
+		assert.throws(() => addSlot(c, 'X', 'Asia/Tokyo'), /invalid code/);
+		assert.throws(() => addSlot(c, 'lon', 'Europe/Paris'), /already used by T2/);
+		assert.throws(() => addSlot(c, 'PAR', 'Europe/Pariss'), /unknown zone/);
+		assert.throws(() => addSlot(c, 'OFF', '+03:00'), /unknown zone/);
 		let full = c;
 		for (const code of ['AA', 'BB', 'CC', 'DD', 'EE']) full = addSlot(full, code, 'UTC');
 		assert.equal(full.slots.length, 9);
-		assert.throws(() => addSlot(full, 'FF', 'UTC'), /limite/);
+		assert.throws(() => addSlot(full, 'FF', 'UTC'), /slot limit/);
 	});
 
 	it('rm compacta', () => {
 		assert.deepEqual(codes(removeSlot(defaultConfig(), 3)), ['NYC', 'LON', 'HKG']);
-		assert.throws(() => removeSlot(defaultConfig(), 5), /T5 não existe/);
+		assert.throws(() => removeSlot(defaultConfig(), 5), /T5 does not exist/);
 	});
 
 	it('não muta o config original', () => {

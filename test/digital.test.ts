@@ -86,7 +86,7 @@ describe('renderDigital', () => {
 	it('zona desconhecida: relógio apagado, sem quebrar', () => {
 		const config = { ...defaultConfig(), slots: [{ code: 'TYO', zone: 'Asia/Tokio', dst: 'auto' as const }] };
 		const lines = render(row(config));
-		assert.equal(lines[0]!.trim(), 'T1 · TOKIO · zona desconhecida');
+		assert.equal(lines[0]!.trim(), 'T1 · TOKIO · unknown zone');
 		assert.ok(lines[5]!.endsWith('  ' + small('--')[2]));
 		assert.equal(lines[6]!.trim(), '');
 	});
@@ -123,7 +123,7 @@ describe('renderInfo', () => {
 		const lines = info(row(config));
 		assert.equal(lines[0]!.trim(), '');
 		assert.ok(lines[3]!.includes('…'));
-		assert.equal(lines[6]!.trim(), 'zona desconhecida');
+		assert.equal(lines[6]!.trim(), 'unknown zone');
 		for (const l of lines) assert.ok(visibleWidth(l) <= 31, l);
 	});
 });

@@ -10,21 +10,20 @@ import { buildRows, renderTable } from './table.ts';
 import { localZone } from './time.ts';
 import { runTui } from './tui.ts';
 
-const USAGE = `uso:
-  timan                       relógio mundial (TUI; tabela em pipe ou terminal < 60 colunas)
-  timan --demo digital        mostra só o painel digital (para ajuste visual)
-  timan --demo analog         calibra a proporção da célula: +/− ajusta, enter salva, esc sai
-  timan --version             mostra a versão
+const USAGE = `usage:
+  timan                  world clock (TUI; plain table when piped or under 60 columns)
+  timan calibrate        fix the analog face's proportions: +/− adjust, enter saves, esc quits
+  timan --version        print the version
 
-teclas na TUI:
-  ↑/↓        seleção na tabela (favoritos e catálogo)
-  ←/→        favorito anterior/próximo
-  f, espaço  favorita/desfavorita a zona selecionada (T0 fica)
-  d          DST do favorito: auto → on → off
-  z          mostra/oculta o painel de zonas
-  m          mapa ↔ analógico, quando não cabem os dois lado a lado
+keys in the TUI:
+  ↑/↓        move through the list (favorites, then the catalog)
+  ←/→        previous/next favorite
+  f, space   add/remove the selected zone as a favorite (T0 stays)
+  d          DST for a favorite: auto → on → off
+  z          show/hide the zones panel
+  m          map ↔ analog, when both don't fit side by side
   t          12/24h
-  q, Ctrl+C  sai`;
+  q, Ctrl+C  quit`;
 
 // package.json fica um nível acima tanto de src/ quanto de dist/.
 function version(): string {
@@ -35,7 +34,7 @@ function version(): string {
 function printTable(config: Config): void {
 	const rows = buildRows(config, localZone(), new Date());
 	for (const r of rows) {
-		if (!r.time) console.error(`timan: aviso: ${r.ref} "${r.zone}": zona desconhecida`);
+		if (!r.time) console.error(`timan: warning: ${r.ref} "${r.zone}": unknown zone`);
 	}
 	console.log(renderTable(rows, config.clock, !process.stdout.isTTY));
 }
@@ -63,15 +62,19 @@ function run(argv: string[]): void {
 		console.log(`timan ${version()}`);
 		return;
 	}
+	// --demo digital: só o painel digital, para ajuste visual; fora do --help.
 	if (values.demo !== undefined) {
-		const path = configPath();
-		if (values.demo === 'digital') return void demoDigital(loadConfig(path));
-		if (values.demo !== 'analog') throw new UsageError(`demo desconhecida: ${values.demo} (use digital ou analog)`);
-		if (!process.stdout.isTTY || !process.stdin.isTTY) throw new UsageError('--demo analog precisa de um terminal interativo');
-		return runCalibration(loadConfig(path), path);
+		if (values.demo === 'analog') throw new UsageError('--demo analog is now: timan calibrate');
+		if (values.demo !== 'digital') throw new UsageError(`unknown demo: ${values.demo} (use digital)`);
+		return void demoDigital(loadConfig(configPath()));
 	}
 
-	if (positionals.length) throw new UsageError(`comando desconhecido: ${positionals[0]}\n\n${USAGE}`);
+	if (positionals[0] === 'calibrate' && positionals.length === 1) {
+		if (!process.stdout.isTTY || !process.stdin.isTTY) throw new UsageError('calibrate needs an interactive terminal');
+		const path = configPath();
+		return runCalibration(loadConfig(path), path);
+	}
+	if (positionals.length) throw new UsageError(`unknown command: ${positionals.join(' ')}\n\n${USAGE}`);
 
 	// Favoritos e DST se editam na TUI (f, d); zonas fora do catálogo, direto no config.json.
 	const path = configPath();

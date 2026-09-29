@@ -49,7 +49,7 @@ function truncate(s: string, width: number): string {
 // UTC−04:00 · EDT · DST. A abreviação vem da IANA (EDT, BST); com DST forçado ela mentiria, então sai.
 function offsetLine(row: Row, at: Date): string {
 	const t = row.time;
-	if (!t) return 'zona desconhecida';
+	if (!t) return 'unknown zone';
 	return [`UTC${minus(formatOffset(t.offset))}`, row.dst === 'auto' ? zoneAbbr(row.zone, at) : undefined, t.dstLabel].filter(Boolean).join(' · ');
 }
 

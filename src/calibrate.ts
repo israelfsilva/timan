@@ -13,9 +13,9 @@ import { localZone } from './time.ts';
 //   ╰────────────────── k 1,05 ───╯
 //     +/− ajusta · enter salva · esc sai
 
-const HELP = '+/− ajusta · enter salva · esc sai';
+const HELP = '+/− adjust · enter save · esc quit';
 
-export const formatAspect = (k: number) => k.toFixed(2).replace('.', ',');
+export const formatAspect = (k: number) => k.toFixed(2);
 
 // Quadro inteiro, centralizado num terminal de cols × rows. Pura.
 export function calibrationFrame(wall: Date | undefined, k: number, cols: number, rows: number): string[] {
@@ -96,7 +96,7 @@ export function runCalibration(config: Config, path: string): void {
 				const fresh = loadConfig(path);
 				saveConfig(path, { ...fresh, ui: { ...fresh.ui, cellAspect: k } });
 				cleanup();
-				console.log(`timan: ui.cellAspect = ${formatAspect(k)} gravado em ${path}`);
+				console.log(`timan: ui.cellAspect = ${formatAspect(k)} saved to ${path}`);
 				return process.exit(0);
 			}
 			case '\x1b':

@@ -77,27 +77,27 @@ export function loadConfig(path: string): Config {
 // são opcionais no arquivo: ausentes viram o padrão, e o próximo save grava a forma completa.
 function validate(data: unknown, path: string): Config {
 	const fail = (what: string) => new ConfigError(`${path}: ${what}`);
-	if (!isObject(data)) throw fail('esperado um objeto JSON');
-	if (data.version !== 1) throw fail(`version ${JSON.stringify(data.version)} não suportada`);
-	if (data.clock !== '12h' && data.clock !== '24h') throw fail('clock deve ser "12h" ou "24h"');
-	if (data.local_name !== undefined && typeof data.local_name !== 'string') throw fail('local_name deve ser texto');
+	if (!isObject(data)) throw fail('expected a JSON object');
+	if (data.version !== 1) throw fail(`version ${JSON.stringify(data.version)} not supported`);
+	if (data.clock !== '12h' && data.clock !== '24h') throw fail('clock must be "12h" or "24h"');
+	if (data.local_name !== undefined && typeof data.local_name !== 'string') throw fail('local_name must be a string');
 	if (data.local_dst !== undefined && !isDstMode(data.local_dst)) throw fail(DST_ERROR.replace('dst', 'local_dst'));
 	if (data.ui !== undefined && (!isObject(data.ui) || (data.ui.showZones !== undefined && typeof data.ui.showZones !== 'boolean'))) {
-		throw fail('ui deve ser {"showZones": true | false}');
+		throw fail('ui must be {"showZones": true | false}');
 	}
 	const aspect = isObject(data.ui) ? data.ui.cellAspect : undefined;
 	if (aspect !== undefined && (typeof aspect !== 'number' || !(aspect >= ASPECT_MIN && aspect <= ASPECT_MAX))) {
-		throw fail(`ui.cellAspect deve ser um número entre ${ASPECT_MIN} e ${ASPECT_MAX}`);
+		throw fail(`ui.cellAspect must be a number between ${ASPECT_MIN} and ${ASPECT_MAX}`);
 	}
-	if (!Array.isArray(data.slots)) throw fail('slots deve ser uma lista');
-	if (data.slots.length > MAX_SLOTS) throw fail(`no máximo ${MAX_SLOTS} slots`);
+	if (!Array.isArray(data.slots)) throw fail('slots must be a list');
+	if (data.slots.length > MAX_SLOTS) throw fail(`at most ${MAX_SLOTS} slots`);
 
 	const slots = data.slots.map((s: unknown, i): Slot => {
 		const ref = `T${i + 1}`;
 		if (!isObject(s) || typeof s.code !== 'string' || typeof s.zone !== 'string') {
-			throw fail(`${ref}: esperado {"code": "...", "zone": "..."}`);
+			throw fail(`${ref}: expected {"code": "...", "zone": "..."}`);
 		}
-		if (s.name !== undefined && typeof s.name !== 'string') throw fail(`${ref}: name deve ser texto`);
+		if (s.name !== undefined && typeof s.name !== 'string') throw fail(`${ref}: name must be a string`);
 		if (s.dst !== undefined && !isDstMode(s.dst)) throw fail(`${ref}: ${DST_ERROR}`);
 		return { code: s.code, zone: s.zone, ...(s.name !== undefined && { name: s.name }), dst: s.dst ?? 'auto' };
 	});
@@ -115,7 +115,7 @@ function validate(data: unknown, path: string): Config {
 	};
 }
 
-const DST_ERROR = 'dst deve ser "auto", "on" ou "off"';
+const DST_ERROR = 'dst must be "auto", "on" or "off"';
 
 function isDstMode(v: unknown): v is DstMode {
 	return DST_MODES.includes(v as DstMode);
@@ -135,24 +135,24 @@ export function saveConfig(path: string, config: Config): void {
 
 function checkSlot(config: Config, code: string, zone: string): Slot {
 	const upper = code.toUpperCase();
-	if (!/^[A-Z]{2,4}$/.test(upper)) throw new UsageError(`código inválido: ${code} (2 a 4 letras)`);
+	if (!/^[A-Z]{2,4}$/.test(upper)) throw new UsageError(`invalid code: ${code} (2 to 4 letters)`);
 	const dup = config.slots.findIndex((s) => s.code.toUpperCase() === upper);
-	if (dup !== -1) throw new UsageError(`código ${upper} já usado em T${dup + 1}`);
+	if (dup !== -1) throw new UsageError(`code ${upper} already used by T${dup + 1}`);
 	const normalized = normalizeZone(zone);
-	if (!normalized) throw new UsageError(`zona desconhecida: ${zone}`);
+	if (!normalized) throw new UsageError(`unknown zone: ${zone}`);
 	return { code: upper, zone: normalized, dst: 'auto' };
 }
 
 // As funções abaixo não mutam: devolvem um novo Config.
 
 export function addSlot(config: Config, code: string, zone: string): Config {
-	if (config.slots.length >= MAX_SLOTS) throw new UsageError(`limite de ${MAX_SLOTS} slots atingido`);
+	if (config.slots.length >= MAX_SLOTS) throw new UsageError(`slot limit of ${MAX_SLOTS} reached`);
 	return { ...config, slots: [...config.slots, checkSlot(config, code, zone)] };
 }
 
 // Remove e compacta: com T1..T4, rm T3 faz T4 virar T3.
 export function removeSlot(config: Config, n: number): Config {
-	if (n > config.slots.length) throw new UsageError(`T${n} não existe`);
+	if (n > config.slots.length) throw new UsageError(`T${n} does not exist`);
 	return { ...config, slots: config.slots.filter((_, i) => i !== n - 1) };
 }
 
@@ -181,7 +181,7 @@ export function setDst(config: Config, n: number, mode: DstMode): Config {
 		const { local_dst: _, ...rest } = config;
 		return mode === 'auto' ? rest : { ...rest, local_dst: mode };
 	}
-	if (n > config.slots.length) throw new UsageError(`T${n} não existe`);
+	if (n > config.slots.length) throw new UsageError(`T${n} does not exist`);
 	return { ...config, slots: config.slots.map((s, i) => (i === n - 1 ? { ...s, dst: mode } : s)) };
 }
 
