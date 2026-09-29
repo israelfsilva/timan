@@ -1,8 +1,8 @@
 class Timan < Formula
   desc "World time in the terminal, inspired by the Casio AE-1200WH"
   homepage "https://github.com/israelfsilva/timan"
-  url "https://registry.npmjs.org/@israelfsilva/timan/-/timan-0.1.0.tgz"
-  sha256 "3a9204811b2a0348efa510079281f8000aa1fd97aea88a6542bdb4f452026ced"
+  url "https://registry.npmjs.org/@israelfsilva/timan/-/timan-1.0.0.tgz"
+  sha256 "84723129a18e96a9611928335923d08eb76b430af5a4965a7b92ad84fdde29bd"
   license "MIT"
 
   depends_on "node"

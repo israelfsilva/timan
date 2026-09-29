@@ -2,7 +2,7 @@
 
 pkgname=timan
 _npmname=@israelfsilva/timan
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="World time in the terminal, inspired by the Casio AE-1200WH"
 arch=('any')
@@ -12,7 +12,7 @@ depends=('nodejs')
 makedepends=('npm' 'jq')
 source=("$pkgname-$pkgver.tgz::https://registry.npmjs.org/$_npmname/-/timan-$pkgver.tgz")
 noextract=("$pkgname-$pkgver.tgz")
-sha256sums=('3a9204811b2a0348efa510079281f8000aa1fd97aea88a6542bdb4f452026ced')
+sha256sums=('84723129a18e96a9611928335923d08eb76b430af5a4965a7b92ad84fdde29bd')
 
 package() {
 	npm install -g --prefix "$pkgdir/usr" --cache "$srcdir/npm-cache" "$srcdir/$pkgname-$pkgver.tgz"
