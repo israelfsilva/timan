@@ -14,7 +14,7 @@ class Timan < Formula
 
   test do
     assert_equal "timan #{version}", shell_output("#{bin}/timan --version").strip
-    # Sem TTY o timan imprime a tabela; T0 é sempre o fuso local.
+    # Without a TTY timan prints the table; T0 is always the local zone.
     assert_match(/^T0 /, pipe_output(bin/"timan", ""))
   end
 end

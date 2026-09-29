@@ -1,7 +1,7 @@
-// Relógio de 7 segmentos com "fantasma": todos os segmentos são sempre desenhados,
-// os apagados numa cor quase igual ao fundo (o 88:88 do LCD).
+// 7-segment clock with "ghosts": every segment is always drawn,
+// the unlit ones in a color close to the background (the LCD's 88:88).
 
-// Segmentos a..g → bits 0..6.
+// Segments a..g → bits 0..6.
 const DIGITS = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f];
 
 const A = 1 << 0;
@@ -12,13 +12,13 @@ const E = 1 << 4;
 const F = 1 << 5;
 const G = 1 << 6;
 
-// Grade 6×5 de um dígito. Cada célula tem duas metades (cima, baixo), e cada metade
-// acende se qualquer um dos seus segmentos acender: os cantos e o meio são juntas
-// compartilhadas, para as barras fecharem nas pontas (o 5 e o 2 não ficam com
-// buracos) e as hastes não passarem da barra do meio (o 4).
+// 6×5 grid for one digit. Each cell has two halves (top, bottom), and each half
+// lights up if any of its segments is lit: corners and the middle are shared
+// joints, so bars close at the ends (5 and 2 have no gaps) and the stems
+// don't run past the middle bar (the 4).
 //   ▄af ▄a ▄a ▄a ▄a ▄ab
 //   █f  ·  ·  ·  ·  █b
-//   █   ▀g ▀g ▀g ▀g █        meio: cima = f|g|e, baixo = e (e b|g|c, c à direita)
+//   █   ▀g ▀g ▀g ▀g █        middle: top = f|g|e, bottom = e (and b|g|c, c on the right)
 //   █e  ·  ·  ·  ·  █c
 //   ▀de ▀d ▀d ▀d ▀d ▀cd
 type Cell = [top: number, bottom: number];
@@ -31,10 +31,10 @@ const GRID: Cell[][] = [
 	row([E | D, 0], [D, 0], [C | D, 0]),
 ];
 
-// Grade 4×3 dos segundos: mesmas regras, com cada segmento numa metade de célula.
-// Termina na metade de cima, como a grade grande, para as bases ficarem alinhadas.
-//   █af ▀a ▀a █ab        esquerda: cima = f|a, baixo = f (e a|b, b à direita)
-//   █e  ▀g ▀g █c         esquerda: cima = f|g|e, baixo = e (e b|g|c, c à direita)
+// 4×3 grid for the seconds: same rules, with each segment in half a cell.
+// Ends on the top half, like the big grid, so the baselines line up.
+//   █af ▀a ▀a █ab        left: top = f|a, bottom = f (and a|b, b on the right)
+//   █e  ▀g ▀g █c         left: top = f|g|e, bottom = e (and b|g|c, c on the right)
 //   ▀de ▀d ▀d ▀cd
 const small = (left: Cell, mid: Cell, right: Cell): Cell[] => [left, mid, mid, right];
 const SMALL_GRID: Cell[][] = [
@@ -43,8 +43,8 @@ const SMALL_GRID: Cell[][] = [
 	small([E | D, 0], [D, 0], [C | D, 0]),
 ];
 
-// Glifo e estado de uma célula; undefined = vazia. Com uma metade acesa e a outra
-// apagada, só a acesa é desenhada (o fantasma da outra metade some).
+// Glyph and state of a cell; undefined = empty. With one half lit and the other
+// unlit, only the lit one is drawn (the other half's ghost disappears).
 function cell([top, bottom]: Cell, mask: number): [string, boolean | undefined] {
 	const t = top ? (mask & top) !== 0 : undefined;
 	const b = bottom ? (mask & bottom) !== 0 : undefined;
@@ -56,24 +56,24 @@ function cell([top, bottom]: Cell, mask: number): [string, boolean | undefined] 
 
 export const LCD_ROWS = 5;
 
-// 4 dígitos de 6, 2 colunas entre os dígitos e "  ▪  " entre hora e minuto.
+// 4 digits of 6, 2 columns between digits and "  ▪  " between hours and minutes.
 export const LCD_WIDTH = 33;
 
 export const SMALL_ROWS = 3;
 
-// 2 dígitos de 4 com 1 coluna entre eles.
+// 2 digits of 4 with 1 column between them.
 export const SMALL_WIDTH = 9;
 
-// Pinta um trecho de segmento aceso (on) ou apagado.
+// Paints a run of lit (on) or unlit segment.
 export type SegmentPainter = (text: string, on: boolean) => string;
 
-// Linha `r` de um dígito (ou apagado, se `ch` não for dígito). Células vizinhas
-// no mesmo estado viram um trecho só: menos escapes ANSI.
+// Row `r` of a digit (or unlit, if `ch` isn't a digit). Neighboring cells
+// in the same state become a single run: fewer ANSI escapes.
 function digitRow(grid: Cell[][], r: number, ch: string, paint: SegmentPainter): string {
 	const mask = /\d/.test(ch) ? DIGITS[Number(ch)]! : 0;
 	let out = '';
 	let run = '';
-	let state: boolean | undefined; // undefined = vazia
+	let state: boolean | undefined; // undefined = empty
 	const flush = () => {
 		out += state === undefined ? run : paint(run, state);
 		run = '';
@@ -88,11 +88,11 @@ function digitRow(grid: Cell[][], r: number, ch: string, paint: SegmentPainter):
 	return out;
 }
 
-// `time` no formato "H:MM", "HH:MM" ou "--:--" (tudo apagado). Hora de um dígito
-// ganha um 8 fantasma à esquerda. O separador ▪ fica nas linhas 1 e 3.
+// `time` as "H:MM", "HH:MM" or "--:--" (all unlit). A one-digit hour
+// gets a ghost 8 on the left. The ▪ separator sits on rows 1 and 3.
 export function renderLcd(time: string, paint: SegmentPainter): string[] {
 	const m = /^(.?.):(..)$/.exec(time);
-	if (!m) throw new Error(`hora inválida para o LCD: ${time}`);
+	if (!m) throw new Error(`invalid time for the LCD: ${time}`);
 	const [h1, h2] = m[1]!.padStart(2, ' ');
 	const [m1, m2] = m[2]!;
 
@@ -103,7 +103,7 @@ export function renderLcd(time: string, paint: SegmentPainter): string[] {
 	});
 }
 
-// Segundos em dígitos pequenos: `secs` com dois dígitos, ou "--" (tudo apagado).
+// Seconds in small digits: `secs` with two digits, or "--" (all unlit).
 export function renderSmallLcd(secs: string, paint: SegmentPainter): string[] {
 	const [s1, s2] = secs;
 	return SMALL_GRID.map((_, r) => digitRow(SMALL_GRID, r, s1!, paint) + ' ' + digitRow(SMALL_GRID, r, s2!, paint));

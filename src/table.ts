@@ -20,11 +20,11 @@ export interface Row {
 	name: string;
 	zone: string;
 	dst: DstMode;
-	// Ausente quando a zona é desconhecida. Tudo já com o override de DST aplicado.
+	// Absent when the zone is unknown. Everything already has the DST override applied.
 	time?: {
 		offset: number;
-		diff: number; // minutos em relação ao T0
-		day: number; // −1, 0, +1 em relação ao T0
+		diff: number; // minutes relative to T0
+		day: number; // −1, 0, +1 relative to T0
 		wall: Date;
 		dstLabel: DstLabel;
 	};
@@ -37,7 +37,7 @@ interface RowBase {
 	dst: DstMode;
 }
 
-// Diferença e dia são contra o offset efetivo do T0, então o override do T0 mexe em todas as linhas.
+// Difference and day are against T0's effective offset, so T0's override affects every row.
 function withTime(r: RowBase, t0Offset: number, at: Date): Row {
 	const row: Row = { ...r, name: r.name.normalize('NFC') };
 	if (!isValidZone(r.zone)) return row;
@@ -58,18 +58,18 @@ function favoriteBases(config: Config, local: string): RowBase[] {
 	return [t0, ...slots];
 }
 
-// T0 primeiro, depois T1..Tn na ordem do config.
+// T0 first, then T1..Tn in config order.
 export function buildRows(config: Config, local: string, at: Date): Row[] {
 	const bases = favoriteBases(config, local);
 	const t0Offset = effectiveOffset(local, at, bases[0]!.dst);
 	return bases.map((r) => withTime(r, t0Offset, at));
 }
 
-// Ref das linhas do catálogo, que não são slots.
+// Ref for catalog rows, which aren't slots.
 export const CATALOG_REF = '·';
 
-// Lista da TUI: os favoritos (T0..Tn) e, depois deles, o catálogo sem as zonas que
-// já são favoritas. Linhas do catálogo têm ref CATALOG_REF e DST sempre auto.
+// TUI list: the favorites (T0..Tn) and, after them, the catalog without the zones that
+// are already favorites. Catalog rows have ref CATALOG_REF and DST always auto.
 export function zoneList(config: Config, local: string, at: Date): { rows: Row[]; favorites: number } {
 	const favorites = buildRows(config, local, at);
 	const t0Offset = favorites[0]!.time?.offset ?? 0;
@@ -79,18 +79,18 @@ export function zoneList(config: Config, local: string, at: Date): { rows: Row[]
 	return { rows: [...favorites, ...catalog], favorites: favorites.length };
 }
 
-// Sem cabeçalho e sem cor. Com ascii, o sinal de menos fica como hífen para grep.
+// No header and no color. With ascii, the minus sign stays a hyphen for grep.
 export function renderTable(rows: Row[], clock: Config['clock'], ascii: boolean): string {
 	return tableLines(rows, clock, { ascii }).join('\n');
 }
 
 export interface TableOptions {
 	ascii?: boolean;
-	seconds?: boolean; // a TUI mostra os segundos
-	dst?: boolean; // coluna do indicador de DST (DST, DST*, STD*)
+	seconds?: boolean; // the TUI shows seconds
+	dst?: boolean; // DST indicator column (DST, DST*, STD*)
 }
 
-// Uma linha por Row, com colunas alinhadas.
+// One line per Row, with aligned columns.
 export function tableLines(rows: Row[], clock: Config['clock'], options: TableOptions = {}): string[] {
 	const minus = (s: string) => (options.ascii ? s : s.replace(/^-/, '−'));
 	const cells = rows.map((r) => {
@@ -108,7 +108,7 @@ export function tableLines(rows: Row[], clock: Config['clock'], options: TableOp
 		];
 	});
 
-	// Colunas de número à direita; texto à esquerda.
+	// Number columns right-aligned; text left-aligned.
 	const right = [false, false, true, true, true, false, false, false];
 	if (!options.dst) right.pop();
 	const widths = right.map((_, c) => Math.max(...cells.map((row) => row[c]!.length)));

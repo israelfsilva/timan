@@ -1,72 +1,71 @@
 import { ANALOG_WIDTH, analogRows, renderAnalog } from './analog.ts';
 import { queryCellSize, takeCellSize } from './aspect.ts';
 import { type Config, MAX_SLOTS, addFavorite, nextDst, removeSlot, saveConfig, setDst } from './config.ts';
-import { DIGITAL_BLOCK, DIGITAL_INFO_ROWS, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from './digital.ts';
+import { type Power, powerLine, readPower } from './battery.ts';
+import { DIGITAL_BLOCK, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from './digital.ts';
 import { besides, panel } from './panel.ts';
 import { CATALOG_REF, type Row, tableLines, zoneList } from './table.ts';
 import { paint, visibleWidth } from './theme.ts';
 import { dstOffsets, localZone, modernZone } from './time.ts';
 import { mapSize, renderMap } from './worldmap.ts';
 
-// Tela estilo btop, ocupando o terminal inteiro:
-//   ╭─ analog ─╮╭─ map ─────────────────╮   linha 1: analógico fixo + mapa flexível
+// btop-style screen, filling the whole terminal:
+//   ╭─ analog ─╮╭─ map ─────────────────╮   row 1: fixed analog + flexible map
 //   ╰──────────╯╰───────────────────────╯
-//   ╭─ T1 ─────╮╭─ digital ────────────╮   linha 2: info fixo + digital flexível, altura fixa (sem o info, o digital o absorve e cresce 2)
+//   ╭─ T1 ─────╮╭─ digital ────────────╮   row 2: fixed info + flexible digital, fixed height (without info, the digital absorbs it)
 //   ╰──────────╯╰──────────────────────╯
-//   ╭─ zones ──────────────────────────╮   linha 3: o resto da altura
+//   ╭─ zones ──────────────────────────╮   row 3: the rest of the height
 //   ╰──────────────────────────────────╯
-//                                              (linha em branco)
-//         ↑↓ zona  ·  ←→ favorito  ·  …        atalhos (ou aviso), centralizados
-//                                              (linha em branco)
-// Prioridade quando falta espaço: digital > mapa > zonas > analógico.
+//                                              (blank line)
+//         ↑↓ zone  ·  ←→ favorite  ·  …        shortcuts (or a notice), centered
+//                                              (blank line)
+// Priority when space runs out: digital > map > zones > analog.
 const ANALOG_PANEL = ANALOG_WIDTH + 2;
-const ZONES_MIN = 3 + 2; // 3 linhas úteis + bordas
-const FOOTER_ROWS = 3; // os atalhos com uma linha em branco antes e depois
-const MAP_MIN_COLS = 36; // largura útil mínima do painel do mapa ao lado do analógico
-const MAP_ROW_MIN = 10; // linha 1 só com o mapa: 6 linhas de mapa + régua + índices + bordas
+const ZONES_MIN = 3 + 2; // 3 usable rows + borders
+const FOOTER_ROWS = 3; // the shortcuts with a blank line before and after
+const MAP_MIN_COLS = 36; // minimum usable width of the map panel next to the analog
+const MAP_ROW_MIN = 10; // row 1 with only the map: 6 map rows + ruler + indices + borders
 const MIN_COLS = 60;
-const INFO_MIN_COLS = ANALOG_PANEL + DIGITAL_BLOCK + 2; // info ao lado do digital
+const INFO_MIN_COLS = ANALOG_PANEL + DIGITAL_BLOCK + 2; // info beside the digital
 
-// O que a tecla m alterna quando o analógico e o mapa não cabem lado a lado.
+// What the m key toggles when the analog and the map don't fit side by side.
 export type Face = 'map' | 'analog';
 
 export interface TuiState {
 	config: Config;
-	selected: number; // índice em zoneList: favoritos (0 = T0) e depois o catálogo
-	face: Face; // painel da linha 1 quando só cabe um
-	aspect: number; // k da célula (aspect.ts): config, resposta do terminal ou 1
-	notice?: string; // aviso breve no lugar dos atalhos
+	selected: number; // index into zoneList: favorites (0 = T0), then the catalog
+	face: Face; // row 1 panel when only one fits
+	aspect: number; // cell k (aspect.ts): config, terminal reply, or 1
+	notice?: string; // brief notice in place of the shortcuts
+	power?: Power; // latest battery reading (or uptime), below the digital
 }
 
 export interface Layout {
-	topRows: number; // altura da linha 1 (0 = sem linha 1)
+	topRows: number; // height of row 1 (0 = no row 1)
 	analog: boolean;
 	map: boolean;
-	toggle: boolean; // só um dos dois por falta de largura: m alterna (por falta de altura, só o mapa)
-	info: boolean; // painel de info ao lado do digital; sem ele, o digital mostra a info
-	zonesRows: number; // altura do painel de zonas (0 = sem painel)
-	padTop: number; // folga acima quando sobra altura (só o digital na tela)
+	toggle: boolean; // only one of the two for lack of width: m toggles (for lack of height, only the map)
+	info: boolean; // info panel beside the digital; without it, the digital shows the info
+	zonesRows: number; // height of the zones panel (0 = no panel)
+	padTop: number; // top padding when there is height to spare (only the digital on screen)
 }
 
-// Altura da linha 2: menor com o info ao lado, maior com o info dentro do digital.
-function digitalPanelRows(info: boolean): number {
-	return (info ? DIGITAL_ROWS : DIGITAL_INFO_ROWS) + 2;
-}
+const DIGITAL_PANEL = DIGITAL_ROWS + 2; // height of row 2, with or without the info beside it
 
-// Painéis para o tamanho do terminal, ou undefined para cair na tabela simples.
-// Altura: as zonas encolhem até 3 linhas úteis; depois sai o analógico (a linha 1
-// fica só com o mapa, de altura flexível); depois saem as zonas; por fim, a linha 1.
-// Largura: sem espaço para o analógico + MAP_MIN_COLS, a linha 1 mostra só `face`.
-// A linha 1 com o analógico tem a altura dele para o k da célula, mais as bordas.
+// Panels for the terminal size, or undefined to fall back to the plain table.
+// Height: zones shrink down to 3 usable rows; then the analog goes (row 1 keeps
+// only the map, at flexible height); then the zones go; finally, row 1.
+// Width: without room for the analog + MAP_MIN_COLS, row 1 shows only `face`.
+// Row 1 with the analog is as tall as the analog for the cell k, plus the borders.
 export function computeLayout(
 	cols: number,
 	rows: number,
 	view: { face: Face; showZones: boolean; aspect: number },
 ): Layout | undefined {
 	const info = cols >= INFO_MIN_COLS;
-	if (cols < MIN_COLS || rows < digitalPanelRows(info) + FOOTER_ROWS) return undefined;
+	if (cols < MIN_COLS || rows < DIGITAL_PANEL + FOOTER_ROWS) return undefined;
 	const TOP_ROWS = analogRows(view.aspect) + 2;
-	const free = rows - FOOTER_ROWS - digitalPanelRows(info);
+	const free = rows - FOOTER_ROWS - DIGITAL_PANEL;
 	const zonesMin = view.showZones ? ZONES_MIN : 0;
 	const wide = cols >= ANALOG_PANEL + MAP_MIN_COLS + 2;
 
@@ -106,24 +105,24 @@ function truncate(s: string, width: number): string {
 	return s.length > width ? s.slice(0, width - 1) + '…' : s;
 }
 
-// Atalhos em ordem de exibição, com a prioridade de cada um (menor = some por último).
-// Sem o painel de zonas, o z é a volta e fica logo depois do q; ↑↓ não faz nada.
+// Shortcuts in display order, each with a priority (lower = dropped last).
+// Without the zones panel, z is the way back and sits right after q; ↑↓ does nothing.
 function shortcuts(layout: Layout): [string, number][] {
 	const zones = layout.zonesRows > 0;
 	const items: [string, number | undefined][] = [
-		['↑↓ zona', zones ? 1 : undefined],
-		['←→ favorito', 2],
-		['f favoritar', zones ? 4 : 6],
+		['↑↓ zone', zones ? 1 : undefined],
+		['←→ favorite', 2],
+		['f favorite', zones ? 4 : 6],
 		['d DST', 5],
-		['z zonas', zones ? 6 : 1],
-		['m mapa/analógico', layout.toggle ? 3 : undefined],
+		['z zones', zones ? 6 : 1],
+		['m map/analog', layout.toggle ? 3 : undefined],
 		['t 12/24', 7],
-		['q sair', 0],
+		['q quit', 0],
 	];
 	return items.filter((i): i is [string, number] => i[1] !== undefined);
 }
 
-// Cabe em `max` colunas: primeiro afrouxa o separador, depois tira os de menor prioridade.
+// Fits in `max` columns: first loosens the separator, then drops the lowest priority.
 export function fitFooter(items: [string, number][], max: number): string {
 	let kept = items;
 	for (;;) {
@@ -137,7 +136,7 @@ export function fitFooter(items: [string, number][], max: number): string {
 	}
 }
 
-// Linha dos atalhos, embaixo da tela: o aviso, se houver, ou os atalhos que couberem, centralizados.
+// Shortcut line at the bottom of the screen: the notice, if any, or the shortcuts that fit, centered.
 function footerLine(state: TuiState, layout: Layout, cols: number): string {
 	const max = cols - 2;
 	const text = state.notice ? truncate(state.notice, max) : fitFooter(shortcuts(layout), max);
@@ -145,14 +144,14 @@ function footerLine(state: TuiState, layout: Layout, cols: number): string {
 	return ' '.repeat(left) + paint(text, { fg: 'secondary' }) + ' '.repeat(cols - left - text.length);
 }
 
-// Separador entre os favoritos e o catálogo.
+// Separator between the favorites and the catalog.
 function separator(width: number): string {
 	const label = ' all zones ';
 	const left = Math.floor((width - label.length) / 2);
 	return paint('─'.repeat(left), { fg: 'border' }) + paint(label, { fg: 'secondary' }) + paint('─'.repeat(width - left - label.length), { fg: 'border' });
 }
 
-// Corpo do painel de zonas: favoritos, separador e catálogo, rolando para manter a seleção visível.
+// Zones panel body: favorites, separator and catalog, scrolling to keep the selection visible.
 function zonesBody(state: TuiState, data: Row[], favorites: number, width: number, height: number): string[] {
 	const list = tableLines(data, state.config.clock, { seconds: true, dst: true });
 	const lines: { text: string; row?: number }[] = list.map((text, row) => ({ text, row }));
@@ -171,26 +170,26 @@ function zonesBody(state: TuiState, data: Row[], favorites: number, width: numbe
 	});
 }
 
-// Corpo de altura `height` com `lines` centralizado na vertical e, com `width`, na horizontal.
+// Body of height `height` with `lines` centered vertically and, with `width`, horizontally.
 function centered(lines: string[], width: number, height: number, contentWidth: number): string[] {
 	const indent = ' '.repeat(Math.max(0, Math.floor((width - contentWidth) / 2)));
 	const top: string[] = Array(Math.max(0, Math.floor((height - lines.length) / 2))).fill('');
 	return [...top, ...lines.map((l) => indent + l)];
 }
 
-// Tela inteira como linhas de largura `cols`, sem posicionamento. Pura: recebe instante, zona local e tamanho.
+// Whole screen as lines of width `cols`, without positioning. Pure: takes the instant, local zone and size.
 export function renderScreen(state: TuiState, local: string, at: Date, cols: number, rows: number): string[] {
 	const { rows: data, favorites } = zoneList(state.config, local, at);
 	const layout = computeLayout(cols, rows, { face: state.face, showZones: state.config.ui.showZones, aspect: state.aspect });
 
 	if (layout === undefined) {
 		const table = tableLines(data.slice(0, favorites), state.config.clock);
-		return [...table.map((l) => truncate(l, cols)), '', paint(truncate('amplie o terminal para ver o mapa', cols), { fg: 'secondary' })];
+		return [...table.map((l) => truncate(l, cols)), '', paint(truncate('enlarge the terminal to see the map', cols), { fg: 'secondary' })];
 	}
 	const sel = data[state.selected] ?? data[0]!;
 	const out: string[] = Array(layout.padTop).fill(' '.repeat(cols));
 
-	// Linha 1: analógico com largura fixa (ou a linha toda, se estiver sozinho) e mapa com o resto.
+	// Row 1: analog at fixed width (or the whole row, if alone) and the map with the rest.
 	if (layout.topRows > 0) {
 		const inner = layout.topRows - 2;
 		const top: string[][] = [];
@@ -199,14 +198,14 @@ export function renderScreen(state: TuiState, local: string, at: Date, cols: num
 			top.push(panel('analog', centered(renderAnalog(sel.time?.wall, state.aspect), analogPanel - 2, inner, ANALOG_WIDTH), analogPanel, layout.topRows));
 		}
 		if (layout.map) {
-			// Favoritos marcam o mapa pelo índice; uma zona do catálogo selecionada entra como ·.
+			// Favorites mark the map by index; a selected catalog zone shows up as ·.
 			const markers = data.flatMap((r, i) =>
 				r.time && (i < favorites || r === sel)
 					? [{ label: r.ref === CATALOG_REF ? CATALOG_REF : r.ref.slice(1), offset: r.time.offset, selected: r === sel }]
 					: [],
 			);
 			const mapPanel = layout.analog ? cols - ANALOG_PANEL : cols;
-			// Margem de 1 de cada lado; régua e índices ocupam 2 linhas.
+			// Margin of 1 on each side; ruler and indices take 2 rows.
 			const size = mapSize(mapPanel - 4, inner - 2, state.aspect);
 			const map = renderMap(size.width, size.height, markers);
 			top.push(panel('map', centered(map, mapPanel - 2, inner, size.width), mapPanel, layout.topRows));
@@ -214,16 +213,16 @@ export function renderScreen(state: TuiState, local: string, at: Date, cols: num
 		out.push(...besides(...top));
 	}
 
-	// Linha 2: info com a largura do analógico e digital com o resto, sempre.
+	// Row 2: info as wide as the analog and the digital with the rest, always.
 	const zones = layout.zonesRows > 0;
 	const digitalPanel = layout.info ? cols - ANALOG_PANEL : cols;
-	const digital = renderDigital(sel, { clock: state.config.clock, at, width: digitalPanel - 2, info: !layout.info });
-	const height = digitalPanelRows(layout.info);
+	const digital = renderDigital(sel, { clock: state.config.clock, at, width: digitalPanel - 2, info: !layout.info, power: powerLine(state.power) });
+	const height = DIGITAL_PANEL;
 	const row2 = [panel('digital', digital, digitalPanel, height)];
 	if (layout.info) row2.unshift(panel(infoTitle(sel), renderInfo(sel, at, ANALOG_PANEL - 2), ANALOG_PANEL, height));
 	out.push(...besides(...row2));
 
-	// Linha 3: zonas, com o resto da altura.
+	// Row 3: zones, with the rest of the height.
 	if (zones) {
 		const body = zonesBody(state, data, favorites, cols - 2, layout.zonesRows - 2);
 		out.push(...panel('zones', body, cols, layout.zonesRows));
@@ -234,36 +233,36 @@ export function renderScreen(state: TuiState, local: string, at: Date, cols: num
 	return out;
 }
 
-// Resultado de uma tecla que mexe no config: o config novo, ou um aviso quando não faz nada.
+// Result of a key that touches the config: the new config, or a notice when it does nothing.
 export interface Action {
 	config?: Config;
 	notice?: string;
 }
 
-// f/espaço: favorito sai (os seguintes são renumerados), zona do catálogo entra no
-// próximo slot. T0 é a zona local e fica.
+// f/space: a favorite leaves (the ones after it are renumbered), a catalog zone goes into the
+// next slot. T0 is the local zone and stays.
 export function toggleFavorite(config: Config, local: string, at: Date, selected: number): Action {
 	const { rows, favorites } = zoneList(config, local, at);
 	const row = rows[selected];
 	if (!row) return {};
-	if (selected === 0) return { notice: 'T0 é a zona local; não sai dos favoritos' };
+	if (selected === 0) return { notice: 'T0 is the local zone; it stays a favorite' };
 	if (selected < favorites) return { config: removeSlot(config, selected) };
-	if (config.slots.length >= MAX_SLOTS) return { notice: `limite de ${MAX_SLOTS} favoritos` };
+	if (config.slots.length >= MAX_SLOTS) return { notice: `limit of ${MAX_SLOTS} favorites` };
 	return { config: addFavorite(config, row.zone, row.name) };
 }
 
-// d: auto → on → off → auto, só em favoritos e só em zona com DST.
+// d: auto → on → off → auto, only on favorites and only on zones with DST.
 export function cycleDst(config: Config, local: string, at: Date, selected: number): Action {
 	const { rows, favorites } = zoneList(config, local, at);
 	const row = rows[selected];
 	if (!row) return {};
-	if (selected >= favorites) return { notice: 'DST só em favoritos (f para favoritar)' };
+	if (selected >= favorites) return { notice: 'DST is for favorites only (f to add one)' };
 	const { std, dst } = dstOffsets(row.zone, at.getUTCFullYear());
-	if (std === dst) return { notice: `${row.name}: sem horário de verão` };
+	if (std === dst) return { notice: `${row.name}: no daylight saving time` };
 	return { config: setDst(config, selected, nextDst(row.dst)) };
 }
 
-// Índice da zona na lista nova, depois de o config mudar; senão o mais perto do antigo.
+// Index of the zone in the new list, after the config changes; otherwise the closest to the old one.
 function reselect(config: Config, local: string, zone: string, fallback: number): number {
 	const { rows } = zoneList(config, local, new Date());
 	const i = rows.findIndex((r) => modernZone(r.zone) === modernZone(zone));
@@ -280,6 +279,7 @@ export function runTui(initial: Config, path: string): void {
 	};
 	let cellQuery: ReturnType<typeof queryCellSize> | undefined;
 	let timer: NodeJS.Timeout | undefined;
+	let powerTimer: NodeJS.Timeout | undefined;
 	let noticeTimer: NodeJS.Timeout | undefined;
 	let lastSize = '';
 	let done = false;
@@ -288,8 +288,8 @@ export function runTui(initial: Config, path: string): void {
 		const cols = stdout.columns;
 		const rows = stdout.rows;
 		const lines = renderScreen(state, localZone(), new Date(), cols, rows);
-		// Limpa a tela inteira só quando o tamanho muda; no resto, sobrescreve as linhas
-		// e apaga o que sobrar abaixo (a tabela de fallback muda de altura).
+		// Clear the whole screen only when the size changes; otherwise overwrite the lines
+		// and erase whatever is left below (the fallback table changes height).
 		let s = '';
 		const size = `${cols}x${rows}`;
 		if (size !== lastSize) {
@@ -300,10 +300,19 @@ export function runTui(initial: Config, path: string): void {
 		stdout.write(s + '\x1b[J');
 	};
 
-	// Redesenha no início de cada segundo.
+	// Redraw at the start of every second.
 	const tick = () => {
 		draw();
 		timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 2);
+	};
+
+	// Battery: every 30 s, outside the tick (pmset takes a few ms); the next second shows it.
+	const pollPower = () => {
+		void readPower().then((p) => {
+			if (done) return;
+			state.power = p;
+			powerTimer = setTimeout(pollPower, 30_000);
+		});
 	};
 
 	const flash = (text: string) => {
@@ -320,6 +329,7 @@ export function runTui(initial: Config, path: string): void {
 		if (done) return;
 		done = true;
 		clearTimeout(timer);
+		clearTimeout(powerTimer);
 		clearTimeout(noticeTimer);
 		cellQuery?.cancel();
 		stdin.setRawMode(false);
@@ -329,7 +339,7 @@ export function runTui(initial: Config, path: string): void {
 
 	const list = () => zoneList(state.config, localZone(), new Date());
 
-	// Grava na hora (escrita atômica) e mantém a mesma zona selecionada.
+	// Save right away (atomic write) and keep the same zone selected.
 	const update = (config: Config, zone: string) => {
 		state.config = config;
 		saveConfig(path, config);
@@ -337,14 +347,14 @@ export function runTui(initial: Config, path: string): void {
 		draw();
 	};
 
-	// ↑↓: a lista toda, sem dar a volta.
+	// ↑↓: the whole list, without wrapping.
 	const moveList = (delta: number) => {
 		if (!state.config.ui.showZones) return;
 		state.selected = Math.max(0, Math.min(list().rows.length - 1, state.selected + delta));
 		draw();
 	};
 
-	// ←→: só os favoritos, dando a volta; saindo do catálogo, vai para a ponta mais perto.
+	// ←→: favorites only, wrapping; leaving the catalog, go to the nearest end.
 	const moveFavorite = (delta: number) => {
 		const n = list().favorites;
 		if (state.selected >= n) state.selected = delta > 0 ? 0 : n - 1;
@@ -352,7 +362,7 @@ export function runTui(initial: Config, path: string): void {
 		draw();
 	};
 
-	// Aplica o resultado de uma tecla: aviso breve, ou config novo gravado.
+	// Apply the result of a key: a brief notice, or a new config saved.
 	const apply = ({ config, notice }: Action) => {
 		if (notice) return flash(notice);
 		const zone = list().rows[state.selected]?.zone;
@@ -367,7 +377,7 @@ export function runTui(initial: Config, path: string): void {
 	stdin.resume();
 
 	stdin.on('data', (chunk: string) => {
-		// A resposta do 16t chega pelo stdin misturada às teclas; sai antes do switch.
+		// The 16t reply arrives on stdin mixed with keys; strip it before the switch.
 		const key = cellQuery ? cellQuery.feed(chunk) : takeCellSize(chunk).rest;
 		switch (key) {
 			case 'q':
@@ -413,7 +423,8 @@ export function runTui(initial: Config, path: string): void {
 	});
 	stdout.on('resize', draw);
 	tick();
-	// Sem k calibrado, pergunta ao terminal depois do primeiro frame (desenhado com k = 1).
+	pollPower();
+	// With no calibrated k, ask the terminal after the first frame (drawn with k = 1).
 	if (initial.ui.cellAspect === undefined) {
 		cellQuery = queryCellSize(
 			(s) => stdout.write(s),

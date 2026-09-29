@@ -8,30 +8,30 @@ const JUL = new Date('2026-07-15T12:00:00Z');
 const names = (at: Date, exclude: string[] = []) => catalogFor(at, exclude).map((e) => e.name);
 
 describe('CATALOG', () => {
-	it('todo ID é IANA válido e já na grafia gravada', () => {
+	it('every ID is valid IANA and already in the saved spelling', () => {
 		for (const e of CATALOG) assert.equal(normalizeZone(e.zone), e.zone);
 	});
 
-	it('sem zona repetida', () => {
+	it('no repeated zone', () => {
 		assert.equal(new Set(CATALOG.map((e) => e.zone)).size, CATALOG.length);
 	});
 });
 
 describe('catalogFor', () => {
-	it('ordena pelo offset atual, oeste → leste, desempate pelo nome', () => {
-		// Julho: Azores em DST (0) empata com UTC; London (+1) vem depois.
+	it('sorts by current offset, west → east, ties broken by name', () => {
+		// July: Azores on DST (0) ties with UTC; London (+1) comes after.
 		assert.deepEqual(names(JUL).slice(12, 16), ['AZORES', 'UTC', 'LONDON', 'PARIS']);
-		// Janeiro: London volta a 0 e empata com UTC; Azores volta a −1.
+		// January: London goes back to 0 and ties with UTC; Azores goes back to −1.
 		assert.deepEqual(names(JAN).slice(12, 15), ['AZORES', 'LONDON', 'UTC']);
-		// Janeiro no hemisfério sul: Lord Howe, Nouméa e Sydney em +11.
+		// January in the southern hemisphere: Lord Howe, Nouméa and Sydney at +11.
 		assert.deepEqual(names(JAN).slice(-7, -4), ['LORD HOWE', 'NOUMÉA', 'SYDNEY']);
-		// Julho: Adelaide volta para +9:30 junto com Darwin.
+		// July: Adelaide goes back to +9:30 together with Darwin.
 		assert.deepEqual(names(JUL).slice(30, 32), ['ADELAIDE', 'DARWIN']);
 		assert.equal(names(JAN)[0], 'PAGO PAGO');
 		assert.equal(names(JAN).at(-1), 'KIRITIMATI');
 	});
 
-	it('exclui os favoritos pelo ID, inclusive por alias antigo', () => {
+	it('excludes favorites by ID, including by an old alias', () => {
 		const list = names(JAN, ['America/Sao_Paulo', 'Asia/Calcutta', 'Europe/Nowhere']);
 		assert.equal(list.length, CATALOG.length - 2);
 		assert.ok(!list.includes('SÃO PAULO'));

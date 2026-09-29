@@ -1,12 +1,12 @@
 import { paint, visibleWidth } from './theme.ts';
 
-// Painel estilo btop: borda arredondada, título embutido na borda de cima e,
-// opcionalmente, um rótulo à direita na borda de baixo.
+// btop-style panel: rounded border, title embedded in the top border and,
+// optionally, a label on the right of the bottom border.
 //   ╭─ title ──────╮
 //   │body          │
 //   ╰──── footer ──╯
-// As linhas do corpo não podem passar de width − 2 (quem chama corta); faltando, completa com branco.
-// Uma linha igual a RULE vira um divisor ├───┤ ligado às bordas.
+// Body lines must not exceed width − 2 (the caller truncates); missing ones are padded with blanks.
+// A line equal to RULE becomes a ├───┤ divider joined to the borders.
 export const RULE = '\0rule';
 
 export function panel(title: string, body: string[], width: number, height: number, footer?: string): string[] {
@@ -25,7 +25,7 @@ export function panel(title: string, body: string[], width: number, height: numb
 		out.push(b('│') + line + ' '.repeat(Math.max(0, inner - visibleWidth(line))) + b('│'));
 	}
 
-	// O rodapé só entra se couber inteiro, com ao menos um traço de cada lado.
+	// The footer only goes in if it fits whole, with at least one dash on each side.
 	const label = footer ? ` ${footer} ` : '';
 	if (label && label.length + 4 <= inner) {
 		out.push(b('╰' + '─'.repeat(inner - label.length - 3)) + paint(label, { fg: 'secondary' }) + b('───╯'));
@@ -35,7 +35,7 @@ export function panel(title: string, body: string[], width: number, height: numb
 	return out;
 }
 
-// Junta painéis lado a lado; todos devem ter o mesmo número de linhas.
+// Joins panels side by side; they must all have the same number of lines.
 export function besides(...columns: string[][]): string[] {
 	return columns[0]!.map((_, i) => columns.map((c) => c[i]!).join(''));
 }

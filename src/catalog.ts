@@ -1,7 +1,7 @@
 import { modernZone, offsetMinutes } from './time.ts';
 
-// Catálogo curado: uma cidade representativa por offset. Só nome e ID IANA; o offset
-// é sempre calculado na hora (o comentário é o horário padrão, para referência).
+// Curated catalog: one representative city per offset. Only name and IANA ID; the offset
+// is always computed at runtime (the comment is standard time, for reference).
 
 export interface CatalogEntry {
 	name: string;
@@ -22,7 +22,7 @@ export const CATALOG: readonly CatalogEntry[] = [
 	{ name: 'SÃO PAULO', zone: 'America/Sao_Paulo' }, // −03:00
 	{ name: 'NORONHA', zone: 'America/Noronha' }, // −02:00
 	{ name: 'AZORES', zone: 'Atlantic/Azores' }, // −01:00
-	{ name: 'UTC', zone: 'Etc/UTC' }, // 00:00 (o Intl aceita, mas supportedValuesOf não lista)
+	{ name: 'UTC', zone: 'Etc/UTC' }, // 00:00 (Intl accepts it, but supportedValuesOf doesn't list it)
 	{ name: 'LONDON', zone: 'Europe/London' }, // 00:00
 	{ name: 'PARIS', zone: 'Europe/Paris' }, // +01:00
 	{ name: 'CAIRO', zone: 'Africa/Cairo' }, // +02:00
@@ -50,9 +50,9 @@ export const CATALOG: readonly CatalogEntry[] = [
 	{ name: 'KIRITIMATI', zone: 'Pacific/Kiritimati' }, // +14:00
 ].map((e) => ({ ...e, name: e.name.normalize('NFC') }));
 
-// Catálogo ordenado pelo offset atual (oeste → leste), desempate pelo nome, sem as
-// zonas de `exclude` (os favoritos, T0 incluído). Compara pelo nome IANA atual, para
-// um local Asia/Calcutta excluir Asia/Kolkata.
+// Catalog sorted by current offset (west → east), ties broken by name, without the
+// zones in `exclude` (the favorites, T0 included). Compares by current IANA name, so
+// a local Asia/Calcutta excludes Asia/Kolkata.
 export function catalogFor(at: Date, exclude: string[]): CatalogEntry[] {
 	const skip = new Set(exclude.map(modernZone));
 	return CATALOG.filter((e) => !skip.has(modernZone(e.zone)))

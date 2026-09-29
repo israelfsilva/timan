@@ -6,18 +6,18 @@ import { buildRows } from './table.ts';
 import { paint } from './theme.ts';
 import { localZone } from './time.ts';
 
-// timan --demo analog: o analógico sozinho, para calibrar o k da célula no olho
-// (o mostrador tem que ficar redondo). + e − ajustam, enter grava ui.cellAspect, esc sai sem gravar.
+// timan calibrate: the analog face on its own, to calibrate the cell k by eye
+// (the dial must look round). + and − adjust, enter saves ui.cellAspect, esc quits without saving.
 //   ╭─ analog ──────────────────────╮
 //   │            …                  │
-//   ╰────────────────── k 1,05 ───╯
-//     +/− ajusta · enter salva · esc sai
+//   ╰────────────────── k 1.05 ───╯
+//     +/− adjust · enter save · esc quit
 
-const HELP = '+/− ajusta · enter salva · esc sai';
+const HELP = '+/− adjust · enter save · esc quit';
 
-export const formatAspect = (k: number) => k.toFixed(2).replace('.', ',');
+export const formatAspect = (k: number) => k.toFixed(2);
 
-// Quadro inteiro, centralizado num terminal de cols × rows. Pura.
+// Whole frame, centered in a cols × rows terminal. Pure.
 export function calibrationFrame(wall: Date | undefined, k: number, cols: number, rows: number): string[] {
 	const width = ANALOG_WIDTH + 2;
 	const box = [...panel('analog', renderAnalog(wall, k), width, analogRows(k) + 2, `k ${formatAspect(k)}`), ''];
@@ -30,14 +30,14 @@ export function calibrationFrame(wall: Date | undefined, k: number, cols: number
 export function runCalibration(config: Config, path: string): void {
 	const { stdin, stdout } = process;
 	let k = config.ui.cellAspect ?? 1;
-	let touched = false; // depois do primeiro +/−, a resposta do terminal não sobrescreve mais
+	let touched = false; // after the first +/−, the terminal's reply no longer overrides
 	let timer: NodeJS.Timeout | undefined;
 	let done = false;
 
 	const draw = () => {
 		const wall = buildRows(config, localZone(), new Date())[0]!.time?.wall;
 		const lines = calibrationFrame(wall, k, stdout.columns, stdout.rows);
-		// A altura do painel muda com k: limpa tudo a cada quadro.
+		// The panel height changes with k: clear everything on each frame.
 		stdout.write('\x1b[H\x1b[2J' + lines.join('\r\n'));
 	};
 	const tick = () => {
@@ -64,7 +64,7 @@ export function runCalibration(config: Config, path: string): void {
 	stdout.on('resize', draw);
 	tick();
 
-	// Sem k gravado, começa pelo que o terminal disser.
+	// With no saved k, start from whatever the terminal reports.
 	const query =
 		config.ui.cellAspect === undefined
 			? queryCellSize(
@@ -92,11 +92,11 @@ export function runCalibration(config: Config, path: string): void {
 				return draw();
 			case '\r':
 			case '\n': {
-				// Relê o arquivo para não desfazer o que a TUI gravou enquanto isto estava aberto.
+				// Re-read the file so we don't undo what the TUI saved while this was open.
 				const fresh = loadConfig(path);
 				saveConfig(path, { ...fresh, ui: { ...fresh.ui, cellAspect: k } });
 				cleanup();
-				console.log(`timan: ui.cellAspect = ${formatAspect(k)} gravado em ${path}`);
+				console.log(`timan: ui.cellAspect = ${formatAspect(k)} saved to ${path}`);
 				return process.exit(0);
 			}
 			case '\x1b':

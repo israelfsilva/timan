@@ -3,29 +3,29 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runCalibration } from './calibrate.ts';
 import { type Config, ConfigError, UsageError, configPath, loadConfig } from './config.ts';
-import { DIGITAL_INFO_ROWS, renderDigital } from './digital.ts';
+import { powerLine, readPower } from './battery.ts';
+import { DIGITAL_ROWS, renderDigital } from './digital.ts';
 import { panel } from './panel.ts';
 import { buildRows, renderTable } from './table.ts';
 import { localZone } from './time.ts';
 import { runTui } from './tui.ts';
 
-const USAGE = `uso:
-  timan                       relógio mundial (TUI; tabela em pipe ou terminal < 60 colunas)
-  timan --demo digital        mostra só o painel digital (para ajuste visual)
-  timan --demo analog         calibra a proporção da célula: +/− ajusta, enter salva, esc sai
-  timan --version             mostra a versão
+const USAGE = `usage:
+  timan                  world clock (TUI; plain table when piped or under 60 columns)
+  timan calibrate        fix the analog face's proportions: +/− adjust, enter saves, esc quits
+  timan --version        print the version
 
-teclas na TUI:
-  ↑/↓        seleção na tabela (favoritos e catálogo)
-  ←/→        favorito anterior/próximo
-  f, espaço  favorita/desfavorita a zona selecionada (T0 fica)
-  d          DST do favorito: auto → on → off
-  z          mostra/oculta o painel de zonas
-  m          mapa ↔ analógico, quando não cabem os dois lado a lado
+keys in the TUI:
+  ↑/↓        move through the list (favorites, then the catalog)
+  ←/→        previous/next favorite
+  f, space   add/remove the selected zone as a favorite (T0 stays)
+  d          DST for a favorite: auto → on → off
+  z          show/hide the zones panel
+  m          map ↔ analog, when both don't fit side by side
   t          12/24h
-  q, Ctrl+C  sai`;
+  q, Ctrl+C  quit`;
 
-// package.json fica um nível acima tanto de src/ quanto de dist/.
+// package.json sits one level up from both src/ and dist/.
 function version(): string {
 	const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 	return pkg.version;
@@ -34,18 +34,18 @@ function version(): string {
 function printTable(config: Config): void {
 	const rows = buildRows(config, localZone(), new Date());
 	for (const r of rows) {
-		if (!r.time) console.error(`timan: aviso: ${r.ref} "${r.zone}": zona desconhecida`);
+		if (!r.time) console.error(`timan: warning: ${r.ref} "${r.zone}": unknown zone`);
 	}
 	console.log(renderTable(rows, config.clock, !process.stdout.isTTY));
 }
 
-// Painel digital isolado, uma vez, na largura do terminal: T1 (ou T0, sem slots).
-function demoDigital(config: Config): void {
+// Digital panel on its own, once, at the terminal width: T1 (or T0, with no slots).
+async function demoDigital(config: Config): Promise<void> {
 	const rows = buildRows(config, localZone(), new Date());
 	const row = rows[1] ?? rows[0]!;
 	const width = process.stdout.columns || 80;
-	const body = renderDigital(row, { clock: config.clock, at: new Date(), width: width - 2, info: true });
-	console.log(panel('digital', body, width, DIGITAL_INFO_ROWS + 2).join('\n'));
+	const body = renderDigital(row, { clock: config.clock, at: new Date(), width: width - 2, info: true, power: powerLine(await readPower()) });
+	console.log(panel('digital', body, width, DIGITAL_ROWS + 2).join('\n'));
 }
 
 function run(argv: string[]): void {
@@ -62,17 +62,21 @@ function run(argv: string[]): void {
 		console.log(`timan ${version()}`);
 		return;
 	}
+	// --demo digital: just the digital panel, for visual tuning; not in --help.
 	if (values.demo !== undefined) {
-		const path = configPath();
-		if (values.demo === 'digital') return demoDigital(loadConfig(path));
-		if (values.demo !== 'analog') throw new UsageError(`demo desconhecida: ${values.demo} (use digital ou analog)`);
-		if (!process.stdout.isTTY || !process.stdin.isTTY) throw new UsageError('--demo analog precisa de um terminal interativo');
-		return runCalibration(loadConfig(path), path);
+		if (values.demo === 'analog') throw new UsageError('--demo analog is now: timan calibrate');
+		if (values.demo !== 'digital') throw new UsageError(`unknown demo: ${values.demo} (use digital)`);
+		return void demoDigital(loadConfig(configPath()));
 	}
 
-	if (positionals.length) throw new UsageError(`comando desconhecido: ${positionals[0]}\n\n${USAGE}`);
+	if (positionals[0] === 'calibrate' && positionals.length === 1) {
+		if (!process.stdout.isTTY || !process.stdin.isTTY) throw new UsageError('calibrate needs an interactive terminal');
+		const path = configPath();
+		return runCalibration(loadConfig(path), path);
+	}
+	if (positionals.length) throw new UsageError(`unknown command: ${positionals.join(' ')}\n\n${USAGE}`);
 
-	// Favoritos e DST se editam na TUI (f, d); zonas fora do catálogo, direto no config.json.
+	// Favorites and DST are edited in the TUI (f, d); zones outside the catalog, directly in config.json.
 	const path = configPath();
 	const config = loadConfig(path);
 	if (process.stdout.isTTY && process.stdin.isTTY && process.stdout.columns >= 60) runTui(config, path);
@@ -82,7 +86,7 @@ function run(argv: string[]): void {
 try {
 	run(process.argv.slice(2));
 } catch (err) {
-	// parseArgs lança TypeError com code ERR_PARSE_ARGS_* para opções inválidas.
+	// parseArgs throws a TypeError with code ERR_PARSE_ARGS_* for invalid options.
 	const parseError = String((err as NodeJS.ErrnoException).code ?? '').startsWith('ERR_PARSE_ARGS');
 	if (err instanceof UsageError || parseError) {
 		console.error(`timan: ${(err as Error).message}`);

@@ -1,14 +1,14 @@
 import { BrailleCanvas } from './braille.ts';
 import { type Color, paint } from './theme.ts';
 
-// Relógio analógico em Braille, 31 células de largura = 62 pontos. A altura depende
-// da proporção k da célula (veja aspect.ts): as distâncias verticais são divididas
-// por k, para o ponto não sair esticado. Com k = 1 são 14 linhas = 56 pontos.
-// Mostrador: um ponto por minuto, traço a cada 5 e os minutos (60, 05…55) por fora.
+// Analog clock in Braille, 31 cells wide = 62 dots. The height depends on the
+// cell aspect k (see aspect.ts): vertical distances are divided by k so dots
+// don't come out stretched. With k = 1 it is 14 rows = 56 dots.
+// Dial: one dot per minute, a tick every 5, and the minutes (60, 05…55) outside.
 
 export const ANALOG_WIDTH = 31;
 
-// Centro no meio da célula 15, na divisa das duas linhas do meio. Raios em pontos.
+// Center in the middle of cell 15, on the boundary between the two middle rows. Radii in dots.
 const CX = 31;
 const DIAL = 21;
 const TICK = 18;
@@ -17,34 +17,34 @@ const HOUR_HAND = 11;
 const MINUTE_HAND = 17;
 const SECOND_HAND = 19;
 
-// Camadas em ordem de prioridade: na célula dividida, vale a maior.
+// Layers in priority order: in a shared cell, the highest wins.
 const DIAL_LAYER = 1;
 const SECOND_LAYER = 2;
 const HAND_LAYER = 3;
 const LAYER_COLOR: Record<number, Color> = { [DIAL_LAYER]: 'land', [SECOND_LAYER]: 'landBand', [HAND_LAYER]: 'lit' };
 
-// Linhas para a proporção k: os rótulos (raio LABELS / k na vertical) mais uma folga
-// de 2 pontos em cima e embaixo, em número par para o centro cair na divisa de linhas.
+// Rows for aspect k: the labels (radius LABELS / k vertically) plus 2 dots of
+// margin above and below, rounded to an even number so the center lands on a row boundary.
 export function analogRows(k: number): number {
 	return 2 * Math.ceil((LABELS / k + 2) / 4);
 }
 
-// Ponto a `r` do centro na fração `turn` de volta (0 = 12h, sentido horário), com
-// centro em (CX, cy) e a vertical dividida por k.
+// Dot at `r` from the center at fraction `turn` of a revolution (0 = 12 o'clock, clockwise),
+// centered at (CX, cy), with the vertical divided by k.
 function polar(cy: number, k: number, turn: number, r: number): [number, number] {
 	const a = turn * 2 * Math.PI;
 	return [CX + r * Math.sin(a), cy - (r / k) * Math.cos(a)];
 }
 
-// `wall` é um wallClock (campos UTC = hora de parede); sem ele, só o mostrador
-// (zona desconhecida). analogRows(k) linhas de 31 colunas.
+// `wall` is a wallClock (UTC fields = wall time); without it, just the dial
+// (unknown zone). analogRows(k) rows of 31 columns.
 export function renderAnalog(wall: Date | undefined, k: number): string[] {
 	const rows = analogRows(k);
 	const cy = rows * 2;
 	const at = (turn: number, r: number) => polar(cy, k, turn, r);
 	const canvas = new BrailleCanvas(ANALOG_WIDTH, rows);
 
-	// Ponteiro grosso: três traços paralelos, afastados meio ponto na perpendicular.
+	// Thick hand: three parallel strokes, half a dot apart along the perpendicular.
 	const thickHand = (turn: number, length: number) => {
 		const a = turn * 2 * Math.PI;
 		const [nx, ny] = [Math.cos(a) * 0.6, (Math.sin(a) * 0.6) / k];
@@ -65,12 +65,12 @@ export function renderAnalog(wall: Date | undefined, k: number): string[] {
 		thickHand((h + m / 60 + s / 3600) / 12, HOUR_HAND);
 	}
 
-	// Minutos por fora do mostrador, centrados no ponto do anel. O meio-termo
-	// arredonda para longe do centro, para os lados espelharem (60 e 30 ficam em 14–15).
+	// Minutes outside the dial, centered on the ring dot. Ties round away from
+	// the center so both sides mirror (60 and 30 land on 14–15).
 	const labels = new Map<string, string>();
 	for (let i = 0; i < 60; i += 5) {
 		const [x, y] = at(i / 60, LABELS);
-		const v = Math.round((x / 2 - 1) * 1e6) / 1e6; // sin(π) não é 0 exato
+		const v = Math.round((x / 2 - 1) * 1e6) / 1e6; // sin(π) is not exactly 0
 		const col = v > CX / 2 - 1 ? Math.round(v) : -Math.round(-v);
 		const row = Math.min(rows - 1, Math.floor(y / 4));
 		const text = String(i || 60).padStart(2, '0');

@@ -3,16 +3,16 @@ import { describe, it } from 'node:test';
 import { BrailleCanvas } from '../src/braille.ts';
 
 describe('BrailleCanvas', () => {
-	it('cada ponto acende o bit certo da célula', () => {
+	it('each dot lights the right bit of the cell', () => {
 		const c = new BrailleCanvas(2, 1);
 		c.set(0, 0);
 		c.set(1, 3);
-		c.set(2.9, 1.2); // fracionário cai no ponto (2, 1)
+		c.set(2.9, 1.2); // a fraction falls into dot (2, 1)
 		assert.equal(c.char(0, 0), '⢁');
 		assert.equal(c.char(1, 0), '⠂');
 	});
 
-	it('ignora pontos fora do canvas', () => {
+	it('ignores dots outside the canvas', () => {
 		const c = new BrailleCanvas(1, 1);
 		c.set(-1, 0);
 		c.set(2, 0);
@@ -20,7 +20,7 @@ describe('BrailleCanvas', () => {
 		assert.equal(c.char(0, 0), '⠀');
 	});
 
-	it('linha sem buracos e a célula fica com a maior camada', () => {
+	it('line without gaps and the cell keeps the highest layer', () => {
 		const c = new BrailleCanvas(4, 1);
 		c.line(0, 0, 7, 3, 1);
 		c.set(0, 3, 2);

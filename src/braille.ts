@@ -1,15 +1,15 @@
-// Canvas em Braille: cada célula tem 2×4 pontos (U+2800 + máscara).
-// Cada ponto aceso guarda uma camada (1..255); a célula assume a maior delas,
-// para quem pinta decidir a cor quando traços diferentes dividem a célula.
+// Braille canvas: each cell has 2×4 dots (U+2800 + mask).
+// Each lit dot stores a layer (1..255); the cell takes the highest one,
+// so the painter can pick the color when different strokes share a cell.
 
-// Bit de cada ponto (dx, dy) dentro da célula.
+// Bit for each dot (dx, dy) within the cell.
 const DOT_BITS = [
 	[0x01, 0x02, 0x04, 0x40],
 	[0x08, 0x10, 0x20, 0x80],
 ];
 
 export class BrailleCanvas {
-	readonly width: number; // em células
+	readonly width: number; // in cells
 	readonly height: number;
 	readonly dotsWide: number;
 	readonly dotsHigh: number;
@@ -25,7 +25,7 @@ export class BrailleCanvas {
 		this.layers = new Uint8Array(width * height);
 	}
 
-	// Coordenadas em pontos; fracionárias caem no ponto que as contém, fora do canvas são ignoradas.
+	// Coordinates in dots; fractions fall into the dot that contains them, points outside the canvas are ignored.
 	set(x: number, y: number, layer = 1): void {
 		const px = Math.floor(x);
 		const py = Math.floor(y);
@@ -35,7 +35,7 @@ export class BrailleCanvas {
 		this.layers[i] = Math.max(this.layers[i]!, layer);
 	}
 
-	// Segmento amostrado a cada meio ponto: sem buracos em nenhuma inclinação.
+	// Segment sampled every half dot: no gaps at any slope.
 	line(x0: number, y0: number, x1: number, y1: number, layer = 1): void {
 		const steps = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2);
 		for (let k = 0; k <= steps; k++) {
@@ -48,7 +48,7 @@ export class BrailleCanvas {
 		return String.fromCodePoint(0x2800 + this.masks[row * this.width + col]!);
 	}
 
-	// 0 = célula vazia.
+	// 0 = empty cell.
 	layer(col: number, row: number): number {
 		return this.layers[row * this.width + col]!;
 	}
