@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { type Config, defaultConfig } from '../src/config.ts';
-import { DIGITAL_BLOCK, DIGITAL_INFO_ROWS, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from '../src/digital.ts';
+import { DIGITAL_BLOCK, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from '../src/digital.ts';
 import { renderSmallLcd } from '../src/lcd.ts';
 import { RULE } from '../src/panel.ts';
 import { buildRows, zoneList } from '../src/table.ts';
@@ -12,7 +12,8 @@ setColorMode('none');
 const AT = new Date('2026-09-26T01:08:36Z');
 const LOCAL = 'America/Sao_Paulo';
 const row = (config: Config = defaultConfig(), i = 1) => buildRows(config, LOCAL, AT)[i]!;
-const render = (r = row(), clock: Config['clock'] = '12h', width = 78, info = true) => renderDigital(r, { clock, at: AT, width, info });
+const render = (r = row(), clock: Config['clock'] = '12h', width = 78, info = true, power?: string) =>
+	renderDigital(r, { clock, at: AT, width, info, ...(power !== undefined && { power }) });
 const info = (r = row(), width = 31) => renderInfo(r, AT, width);
 // Segundos pequenos sem cor (acesos e apagados iguais), para comparar com o fim das linhas.
 const small = (secs: string) => renderSmallLcd(secs, (s) => s);
@@ -26,7 +27,7 @@ function margins(line: string, width: number): [number, number] {
 describe('renderDigital', () => {
 	it('com info: info, bloco e data centralizados', () => {
 		const lines = render();
-		assert.equal(lines.length, DIGITAL_INFO_ROWS);
+		assert.equal(lines.length, DIGITAL_ROWS);
 		assert.equal(lines[0]!.trim(), 'T1 · NEW YORK · UTC−04:00 · EDT · DST');
 		assert.equal(lines[6]!.trim(), 'FRI 25 SEP 2026');
 		for (const i of [0, 6]) {
@@ -39,12 +40,22 @@ describe('renderDigital', () => {
 		assert.equal(visibleWidth(lines[5]!), indent + DIGITAL_BLOCK);
 	});
 
-	it('sem info: só o bloco, sem folga', () => {
-		const lines = render(row(), '12h', 78, false);
+	it('sem info: WORLD TIME, o bloco e a bateria', () => {
+		const lines = render(row(), '12h', 78, false, '87% · 4 HOUR BATTERY');
 		assert.equal(lines.length, DIGITAL_ROWS);
-		assert.ok(lines[0]!.endsWith('  PM'));
+		assert.equal(lines[0]!.trim(), 'WORLD TIME');
+		assert.ok(lines[1]!.endsWith('  PM'));
 		assert.ok(!lines.join('').includes('NEW YORK'));
-		assert.ok(lines[4]!.endsWith('  ' + small('36')[2]));
+		assert.ok(lines[5]!.endsWith('  ' + small('36')[2]));
+		assert.equal(lines[6]!.trim(), '87% · 4 HOUR BATTERY');
+		for (const i of [0, 6]) {
+			const [l, r] = margins(lines[i]!, 78);
+			assert.ok(Math.abs(l - r) <= 1, `linha ${i}: ${l} × ${r}`);
+		}
+	});
+
+	it('com info: a bateria vai junto da data', () => {
+		assert.equal(render(row(), '12h', 78, true, '87% BATTERY · CHARGING')[6]!.trim(), 'FRI 25 SEP 2026 · 87% BATTERY · CHARGING');
 	});
 
 	it('à direita dos dígitos: AM/PM em cima, segundos em LCD pequeno alinhados embaixo', () => {
@@ -88,14 +99,14 @@ describe('renderDigital', () => {
 });
 
 describe('renderInfo', () => {
-	it('data, nome e fuso centralizados, separados por divisores e sem folga', () => {
+	it('data e fuso na altura do título e da bateria; nome no meio', () => {
 		const lines = info();
 		assert.equal(lines.length, DIGITAL_ROWS);
 		assert.deepEqual(
 			lines.map((l) => (l === RULE ? RULE : l.trim())),
-			['FRI 25 SEP 2026', RULE, 'NEW YORK', RULE, 'UTC−04:00 · EDT · DST'],
+			['FRI 25 SEP 2026', RULE, '', 'NEW YORK', '', RULE, 'UTC−04:00 · EDT · DST'],
 		);
-		for (const i of [0, 2, 4]) {
+		for (const i of [0, 3, 6]) {
 			const [l, r] = margins(lines[i]!, 31);
 			assert.ok(Math.abs(l - r) <= 1, `linha ${i}: ${l} × ${r}`);
 		}
@@ -111,8 +122,8 @@ describe('renderInfo', () => {
 		const config = { ...defaultConfig(), slots: [{ code: 'X', zone: 'Asia/Tokio', name: 'A'.repeat(60), dst: 'auto' as const }] };
 		const lines = info(row(config));
 		assert.equal(lines[0]!.trim(), '');
-		assert.ok(lines[2]!.includes('…'));
-		assert.equal(lines[4]!.trim(), 'zona desconhecida');
+		assert.ok(lines[3]!.includes('…'));
+		assert.equal(lines[6]!.trim(), 'zona desconhecida');
 		for (const l of lines) assert.ok(visibleWidth(l) <= 31, l);
 	});
 });

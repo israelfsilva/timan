@@ -31,9 +31,9 @@ function assertFills(lines: string[], cols: number, rows: number): void {
 const rulerWidth = (lines: string[]) => lines.find((l) => l.includes('┴'))!.match(/┴[┴─]*/)![0].length;
 
 describe('computeLayout', () => {
-	it('tudo cabe: analógico + mapa em cima (16), info + digital (7), zonas com o resto e 3 linhas de atalhos', () => {
-		assert.deepEqual(layout(140, 40), { topRows: 16, analog: true, map: true, toggle: false, info: true, zonesRows: 14, padTop: 0 });
-		assert.deepEqual(shape(80, 31), [16, true, true, 5, 0]);
+	it('tudo cabe: analógico + mapa em cima (16), info + digital (9), zonas com o resto e 3 linhas de atalhos', () => {
+		assert.deepEqual(layout(140, 40), { topRows: 16, analog: true, map: true, toggle: false, info: true, zonesRows: 12, padTop: 0 });
+		assert.deepEqual(shape(80, 33), [16, true, true, 5, 0]);
 	});
 
 	it('k = 1,2: a linha 1 encolhe com o analógico (12 + bordas) e as zonas ganham o resto', () => {
@@ -43,7 +43,7 @@ describe('computeLayout', () => {
 			map: true,
 			toggle: false,
 			info: true,
-			zonesRows: 16,
+			zonesRows: 14,
 			padTop: 0,
 		});
 	});
@@ -60,28 +60,28 @@ describe('computeLayout', () => {
 	});
 
 	it('altura: zonas até 3 linhas úteis, depois sai o analógico, depois as zonas, depois a linha 1', () => {
-		assert.deepEqual(shape(140, 30), [15, false, true, 5, 0]); // sem analógico, mapa encolhe
-		assert.deepEqual(shape(140, 25), [10, false, true, 5, 0]);
-		assert.deepEqual(shape(140, 24), [14, false, true, 0, 0]); // zonas saem
-		assert.deepEqual(shape(140, 20), [10, false, true, 0, 0]);
-		assert.deepEqual(shape(140, 19), [0, false, false, 9, 0]); // linha 1 sai
-		assert.deepEqual(shape(140, 15), [0, false, false, 5, 0]);
-		assert.deepEqual(shape(140, 14), [0, false, false, 0, 2]); // só info + digital, centralizados
-		assert.equal(layout(140, 30)!.toggle, false); // falta de altura não é caso do m
+		assert.deepEqual(shape(140, 32), [15, false, true, 5, 0]); // sem analógico, mapa encolhe
+		assert.deepEqual(shape(140, 27), [10, false, true, 5, 0]);
+		assert.deepEqual(shape(140, 26), [14, false, true, 0, 0]); // zonas saem
+		assert.deepEqual(shape(140, 22), [10, false, true, 0, 0]);
+		assert.deepEqual(shape(140, 21), [0, false, false, 9, 0]); // linha 1 sai
+		assert.deepEqual(shape(140, 17), [0, false, false, 5, 0]);
+		assert.deepEqual(shape(140, 16), [0, false, false, 0, 2]); // só info + digital, centralizados
+		assert.equal(layout(140, 32)!.toggle, false); // falta de altura não é caso do m
 	});
 
 	it('zonas ocultas: a linha 1 cresce com a altura', () => {
-		assert.deepEqual(shape(140, 40, false), [30, true, true, 0, 0]);
-		assert.deepEqual(shape(140, 26, false), [16, true, true, 0, 0]);
-		assert.deepEqual(shape(140, 25, false), [15, false, true, 0, 0]);
-		assert.deepEqual(shape(140, 19, false), [0, false, false, 0, 4]);
+		assert.deepEqual(shape(140, 40, false), [28, true, true, 0, 0]);
+		assert.deepEqual(shape(140, 28, false), [16, true, true, 0, 0]);
+		assert.deepEqual(shape(140, 27, false), [15, false, true, 0, 0]);
+		assert.deepEqual(shape(140, 21, false), [0, false, false, 0, 4]);
 	});
 
 	it('pequeno demais cai na tabela', () => {
 		assert.equal(layout(59, 40), undefined);
-		assert.equal(layout(140, 9), undefined);
-		assert.notEqual(layout(100, 10), undefined); // info ao lado: linha 2 com 7, mais os atalhos
-		assert.notEqual(layout(60, 12), undefined); // info dentro: linha 2 com 9, mais os atalhos
+		assert.equal(layout(140, 11), undefined);
+		assert.notEqual(layout(100, 12), undefined); // linha 2 com 9 (info ao lado ou dentro), mais os atalhos
+		assert.notEqual(layout(60, 12), undefined);
 	});
 });
 
@@ -104,12 +104,14 @@ describe('renderScreen', () => {
 		assert.ok(lines[16]!.startsWith('╭─ T1 ─'));
 		assert.ok(lines[16]!.includes('╮╭─ digital ─'));
 		// Info com a largura do analógico: data, nome e fuso entre divisores.
-		const info = lines.slice(17, 22).map((l) => l.slice(0, 33));
-		assert.deepEqual(info.map((l) => l.slice(1, -1).trim()), ['FRI 25 SEP 2026', '─'.repeat(31), 'NEW YORK', '─'.repeat(31), 'UTC−04:00 · EDT · DST']);
+		const info = lines.slice(17, 24).map((l) => l.slice(0, 33));
+		assert.deepEqual(info.map((l) => l.slice(1, -1).trim()), ['FRI 25 SEP 2026', '─'.repeat(31), '', 'NEW YORK', '', '─'.repeat(31), 'UTC−04:00 · EDT · DST']);
 		assert.ok(info[1]!.startsWith('├') && info[1]!.endsWith('┤'));
-		assert.ok(lines[23]!.startsWith('╭─ zones ─'));
-		assert.ok(lines[24]!.startsWith('│ ★ T0  SAO PAULO'));
-		assert.ok(lines[25]!.startsWith('│ ▸ T1  NEW YORK     −04:00     −1h   9:08:36 PM  FRI 25      DST'));
+		// Digital: WORLD TIME em cima e a bateria (vazia antes da primeira leitura) embaixo.
+		assert.equal(lines[17]!.slice(34, -1).trim(), 'WORLD TIME');
+		assert.ok(lines[25]!.startsWith('╭─ zones ─'));
+		assert.ok(lines[26]!.startsWith('│ ★ T0  SAO PAULO'));
+		assert.ok(lines[27]!.startsWith('│ ▸ T1  NEW YORK     −04:00     −1h   9:08:36 PM  FRI 25      DST'));
 		// Atalhos fora da caixa, centralizados, com uma linha em branco antes e depois.
 		assert.ok(lines[36]!.startsWith('╰─') && !lines[36]!.includes('q sair'));
 		assert.equal(lines[37]!.trim(), '');
@@ -135,8 +137,8 @@ describe('renderScreen', () => {
 		assert.ok(!lines.some((l) => l.includes('╭─ zones')));
 		assert.ok(rulerWidth(lines) > 57);
 		const sixty = lines.findIndex((l) => l.includes('60⠀'));
-		assert.equal(sixty, 1 + Math.floor((30 - 2 - 14) / 2)); // 14 linhas no meio de 28
-		assert.ok(lines[30]!.includes('╭─ digital ─'));
+		assert.equal(sixty, 1 + Math.floor((28 - 2 - 14) / 2)); // 14 linhas no meio de 26
+		assert.ok(lines[28]!.includes('╭─ digital ─'));
 		assert.ok(lines[38]!.includes('z zonas')); // atalhos embaixo
 	});
 
@@ -154,19 +156,19 @@ describe('renderScreen', () => {
 		assert.ok(Math.abs(left - (70 - 2 - 31 - left)) <= 1); // centralizado na linha toda
 	});
 
-	it('80×20: sem espaço para as zonas, fica o mapa (prioridade maior)', () => {
-		const lines = screen(defaultConfig(), 1, 80, 20);
-		assertFills(lines, 80, 20);
+	it('80×22: sem espaço para as zonas, fica o mapa (prioridade maior)', () => {
+		const lines = screen(defaultConfig(), 1, 80, 22);
+		assertFills(lines, 80, 22);
 		assert.ok(lines[0]!.startsWith('╭─ map ─'));
 		assert.ok(!lines.some((l) => l.includes('╭─ zones') || l.includes('╭─ analog')));
-		assert.ok(!lines[18]!.includes('m mapa'));
+		assert.ok(!lines[20]!.includes('m mapa'));
 	});
 
 	it('pouca altura: só info + digital, centralizados, e os atalhos embaixo', () => {
 		const lines = screen(defaultConfig(), 1, 100, 14);
 		assertFills(lines, 100, 14);
-		assert.ok(lines[2]!.startsWith('╭─ T1 ─') && lines[2]!.includes('╭─ digital ─'));
-		assert.ok(lines[8]!.startsWith('╰───') && !lines[8]!.includes('q sair'));
+		assert.ok(lines[1]!.startsWith('╭─ T1 ─') && lines[1]!.includes('╭─ digital ─'));
+		assert.ok(lines[9]!.startsWith('╰───') && !lines[9]!.includes('q sair'));
 		assert.ok(lines[12]!.includes('q sair'));
 	});
 
@@ -178,15 +180,15 @@ describe('renderScreen', () => {
 		const lines = screen(defaultConfig(), 5, 140, 40); // o primeiro do catálogo
 		assert.ok(lines.some((l) => l.startsWith('│ ▸ ·   PAGO PAGO')));
 		assert.ok(lines[16]!.startsWith('╭─ zone ─'));
-		assert.ok(lines[19]!.includes('PAGO PAGO'));
+		assert.ok(lines[20]!.includes('PAGO PAGO'));
 		assert.ok(lines[14]!.includes('·'));
 	});
 
 	it('DST forçado: indicador na tabela e no digital, sem a abreviação da IANA', () => {
 		const config = { ...defaultConfig(), slots: defaultConfig().slots.map((s, i) => (i === 0 ? { ...s, dst: 'off' as const } : s)) };
 		const lines = screen(config, 1, 140, 40);
-		assert.equal(lines[21]!.slice(1, 32).trim(), 'UTC−05:00 · STD*');
-		assert.ok(lines[25]!.includes('−05:00     −2h   8:08:36 PM  FRI 25      STD*'));
+		assert.equal(lines[23]!.slice(1, 32).trim(), 'UTC−05:00 · STD*');
+		assert.ok(lines[27]!.includes('−05:00     −2h   8:08:36 PM  FRI 25      STD*'));
 	});
 
 	it('aviso no lugar dos atalhos', () => {
@@ -197,14 +199,14 @@ describe('renderScreen', () => {
 
 	it('24h: sem AM/PM', () => {
 		const lines = screen({ ...defaultConfig(), clock: '24h' }, 1, 140, 40);
-		assert.ok(!lines.slice(16, 23).join('').includes('PM'));
-		assert.ok(lines[25]!.includes('21:08:36'));
+		assert.ok(!lines.slice(16, 25).join('').includes('PM'));
+		assert.ok(lines[27]!.includes('21:08:36'));
 	});
 
 	it('lista rola para manter a seleção visível, contando o separador', () => {
 		const lines = screen(defaultConfig(), 30, 140, 40); // bem no meio do catálogo
 		assertFills(lines, 140, 40);
-		assert.ok(lines.slice(24, 36).some((l) => l.startsWith('│ ▸ ·')));
+		assert.ok(lines.slice(26, 36).some((l) => l.startsWith('│ ▸ ·')));
 		assert.ok(!lines.some((l) => l.includes('T0  SAO PAULO')));
 		const last = screen(defaultConfig(), 38, 140, 40); // último do catálogo
 		assert.ok(last[35]!.startsWith('│ ▸ ·   KIRITIMATI'));
@@ -214,8 +216,8 @@ describe('renderScreen', () => {
 		const config = { ...defaultConfig(), slots: [{ code: 'TYO', zone: 'Asia/Tokio', dst: 'auto' as const }] };
 		const lines = screen(config, 1, 140, 40);
 		assertFills(lines, 140, 40);
-		assert.equal(lines[19]!.slice(1, 32).trim(), 'TOKIO');
-		assert.equal(lines[21]!.slice(1, 32).trim(), 'zona desconhecida');
+		assert.equal(lines[20]!.slice(1, 32).trim(), 'TOKIO');
+		assert.equal(lines[23]!.slice(1, 32).trim(), 'zona desconhecida');
 	});
 
 	it('terminal pequeno cai na tabela só dos favoritos', () => {

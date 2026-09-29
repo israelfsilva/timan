@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runCalibration } from './calibrate.ts';
 import { type Config, ConfigError, UsageError, configPath, loadConfig } from './config.ts';
-import { DIGITAL_INFO_ROWS, renderDigital } from './digital.ts';
+import { powerLine, readPower } from './battery.ts';
+import { DIGITAL_ROWS, renderDigital } from './digital.ts';
 import { panel } from './panel.ts';
 import { buildRows, renderTable } from './table.ts';
 import { localZone } from './time.ts';
@@ -40,12 +41,12 @@ function printTable(config: Config): void {
 }
 
 // Painel digital isolado, uma vez, na largura do terminal: T1 (ou T0, sem slots).
-function demoDigital(config: Config): void {
+async function demoDigital(config: Config): Promise<void> {
 	const rows = buildRows(config, localZone(), new Date());
 	const row = rows[1] ?? rows[0]!;
 	const width = process.stdout.columns || 80;
-	const body = renderDigital(row, { clock: config.clock, at: new Date(), width: width - 2, info: true });
-	console.log(panel('digital', body, width, DIGITAL_INFO_ROWS + 2).join('\n'));
+	const body = renderDigital(row, { clock: config.clock, at: new Date(), width: width - 2, info: true, power: powerLine(await readPower()) });
+	console.log(panel('digital', body, width, DIGITAL_ROWS + 2).join('\n'));
 }
 
 function run(argv: string[]): void {
@@ -64,7 +65,7 @@ function run(argv: string[]): void {
 	}
 	if (values.demo !== undefined) {
 		const path = configPath();
-		if (values.demo === 'digital') return demoDigital(loadConfig(path));
+		if (values.demo === 'digital') return void demoDigital(loadConfig(path));
 		if (values.demo !== 'analog') throw new UsageError(`demo desconhecida: ${values.demo} (use digital ou analog)`);
 		if (!process.stdout.isTTY || !process.stdin.isTTY) throw new UsageError('--demo analog precisa de um terminal interativo');
 		return runCalibration(loadConfig(path), path);

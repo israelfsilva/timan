@@ -1,7 +1,8 @@
 import { ANALOG_WIDTH, analogRows, renderAnalog } from './analog.ts';
 import { queryCellSize, takeCellSize } from './aspect.ts';
 import { type Config, MAX_SLOTS, addFavorite, nextDst, removeSlot, saveConfig, setDst } from './config.ts';
-import { DIGITAL_BLOCK, DIGITAL_INFO_ROWS, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from './digital.ts';
+import { type Power, powerLine, readPower } from './battery.ts';
+import { DIGITAL_BLOCK, DIGITAL_ROWS, infoTitle, renderDigital, renderInfo } from './digital.ts';
 import { besides, panel } from './panel.ts';
 import { CATALOG_REF, type Row, tableLines, zoneList } from './table.ts';
 import { paint, visibleWidth } from './theme.ts';
@@ -11,7 +12,7 @@ import { mapSize, renderMap } from './worldmap.ts';
 // Tela estilo btop, ocupando o terminal inteiro:
 //   ╭─ analog ─╮╭─ map ─────────────────╮   linha 1: analógico fixo + mapa flexível
 //   ╰──────────╯╰───────────────────────╯
-//   ╭─ T1 ─────╮╭─ digital ────────────╮   linha 2: info fixo + digital flexível, altura fixa (sem o info, o digital o absorve e cresce 2)
+//   ╭─ T1 ─────╮╭─ digital ────────────╮   linha 2: info fixo + digital flexível, altura fixa (sem o info, o digital o absorve)
 //   ╰──────────╯╰──────────────────────╯
 //   ╭─ zones ──────────────────────────╮   linha 3: o resto da altura
 //   ╰──────────────────────────────────╯
@@ -36,6 +37,7 @@ export interface TuiState {
 	face: Face; // painel da linha 1 quando só cabe um
 	aspect: number; // k da célula (aspect.ts): config, resposta do terminal ou 1
 	notice?: string; // aviso breve no lugar dos atalhos
+	power?: Power; // última leitura da bateria (ou uptime), embaixo do digital
 }
 
 export interface Layout {
@@ -48,10 +50,7 @@ export interface Layout {
 	padTop: number; // folga acima quando sobra altura (só o digital na tela)
 }
 
-// Altura da linha 2: menor com o info ao lado, maior com o info dentro do digital.
-function digitalPanelRows(info: boolean): number {
-	return (info ? DIGITAL_ROWS : DIGITAL_INFO_ROWS) + 2;
-}
+const DIGITAL_PANEL = DIGITAL_ROWS + 2; // altura da linha 2, com ou sem o info ao lado
 
 // Painéis para o tamanho do terminal, ou undefined para cair na tabela simples.
 // Altura: as zonas encolhem até 3 linhas úteis; depois sai o analógico (a linha 1
@@ -64,9 +63,9 @@ export function computeLayout(
 	view: { face: Face; showZones: boolean; aspect: number },
 ): Layout | undefined {
 	const info = cols >= INFO_MIN_COLS;
-	if (cols < MIN_COLS || rows < digitalPanelRows(info) + FOOTER_ROWS) return undefined;
+	if (cols < MIN_COLS || rows < DIGITAL_PANEL + FOOTER_ROWS) return undefined;
 	const TOP_ROWS = analogRows(view.aspect) + 2;
-	const free = rows - FOOTER_ROWS - digitalPanelRows(info);
+	const free = rows - FOOTER_ROWS - DIGITAL_PANEL;
 	const zonesMin = view.showZones ? ZONES_MIN : 0;
 	const wide = cols >= ANALOG_PANEL + MAP_MIN_COLS + 2;
 
@@ -217,8 +216,8 @@ export function renderScreen(state: TuiState, local: string, at: Date, cols: num
 	// Linha 2: info com a largura do analógico e digital com o resto, sempre.
 	const zones = layout.zonesRows > 0;
 	const digitalPanel = layout.info ? cols - ANALOG_PANEL : cols;
-	const digital = renderDigital(sel, { clock: state.config.clock, at, width: digitalPanel - 2, info: !layout.info });
-	const height = digitalPanelRows(layout.info);
+	const digital = renderDigital(sel, { clock: state.config.clock, at, width: digitalPanel - 2, info: !layout.info, power: powerLine(state.power) });
+	const height = DIGITAL_PANEL;
 	const row2 = [panel('digital', digital, digitalPanel, height)];
 	if (layout.info) row2.unshift(panel(infoTitle(sel), renderInfo(sel, at, ANALOG_PANEL - 2), ANALOG_PANEL, height));
 	out.push(...besides(...row2));
@@ -280,6 +279,7 @@ export function runTui(initial: Config, path: string): void {
 	};
 	let cellQuery: ReturnType<typeof queryCellSize> | undefined;
 	let timer: NodeJS.Timeout | undefined;
+	let powerTimer: NodeJS.Timeout | undefined;
 	let noticeTimer: NodeJS.Timeout | undefined;
 	let lastSize = '';
 	let done = false;
@@ -306,6 +306,15 @@ export function runTui(initial: Config, path: string): void {
 		timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 2);
 	};
 
+	// Bateria: a cada 30 s, fora do tick (pmset leva alguns ms); o próximo segundo já mostra.
+	const pollPower = () => {
+		void readPower().then((p) => {
+			if (done) return;
+			state.power = p;
+			powerTimer = setTimeout(pollPower, 30_000);
+		});
+	};
+
 	const flash = (text: string) => {
 		state.notice = text;
 		clearTimeout(noticeTimer);
@@ -320,6 +329,7 @@ export function runTui(initial: Config, path: string): void {
 		if (done) return;
 		done = true;
 		clearTimeout(timer);
+		clearTimeout(powerTimer);
 		clearTimeout(noticeTimer);
 		cellQuery?.cancel();
 		stdin.setRawMode(false);
@@ -413,6 +423,7 @@ export function runTui(initial: Config, path: string): void {
 	});
 	stdout.on('resize', draw);
 	tick();
+	pollPower();
 	// Sem k calibrado, pergunta ao terminal depois do primeiro frame (desenhado com k = 1).
 	if (initial.ui.cellAspect === undefined) {
 		cellQuery = queryCellSize(

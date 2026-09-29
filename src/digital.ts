@@ -7,18 +7,21 @@ import { formatClock, formatDate, formatOffset, zoneAbbr } from './time.ts';
 
 // Linha 2 da TUI: painel de info à esquerda e digital à direita, com a mesma altura.
 //   ╭─ T1 ──────────────╮╭─ digital ──────────────────────────────────────────╮
-//   │  FRI 25 SEP 2026  ││  ▄▄▄▄▄▄  ▄▄▄▄▄▄     ▄▄▄▄▄▄  ▄▄▄▄▄▄  PM             │
-//   ├───────────────────┤│  …                                                 │
+//   │  FRI 25 SEP 2026  ││                    WORLD TIME                      │
+//   ├───────────────────┤│  ▄▄▄▄▄▄  ▄▄▄▄▄▄     ▄▄▄▄▄▄  ▄▄▄▄▄▄  PM             │
+//   │                   ││  …                                                 │
 //   │     NEW YORK      ││                                  ▄▄▄▄ ▄▄▄▄         │
-//   ├───────────────────┤│                                  ▄▄▄█ █▄▄▄         │
-//   │ UTC−04:00 · EDT   ││  ▀▀▀▀▀▀  ▀▀▀▀▀▀     ▀▀▀▀▀▀  ▀▀▀▀▀▀  ▄▄▄█ █▄▄█         │
+//   │                   ││                                  ▄▄▄█ █▄▄▄         │
+//   ├───────────────────┤│  ▀▀▀▀▀▀  ▀▀▀▀▀▀     ▀▀▀▀▀▀  ▀▀▀▀▀▀  ▄▄▄█ █▄▄█         │
+//   │ UTC−04:00 · EDT   ││               87% · 4 HOUR BATTERY                 │
 //   ╰───────────────────╯╰────────────────────────────────────────────────────╯
-// As três seções do info têm uma linha cada, sem folga, para o espaçamento ser igual;
-// os dígitos já têm meia célula de respiro (▄ em cima, ▀ embaixo).
-// Sem largura para o info ao lado, o digital o absorve: info na primeira linha, data na última.
+// Como no AE-1200WH: WORLD TIME impresso acima do visor e a bateria abaixo (battery.ts).
+// Data e fuso do info ficam na altura do título e da bateria; o nome, no meio dos dígitos.
+// Os dígitos já têm meia célula de respiro (▄ em cima, ▀ embaixo).
+// Sem largura para o info ao lado, o digital o absorve na mesma altura: o info no lugar
+// do título e a data junto da bateria.
 
-export const DIGITAL_ROWS = LCD_ROWS; // ao lado do info
-export const DIGITAL_INFO_ROWS = LCD_ROWS + 2; // com o info dentro
+export const DIGITAL_ROWS = LCD_ROWS + 2; // título (ou info), dígitos e bateria (ou data)
 
 // Os dígitos, 2 espaços e a coluna da direita: AM/PM em cima, segundos pequenos
 // alinhados embaixo. A coluna fica reservada em 24h, para o bloco não andar.
@@ -29,6 +32,7 @@ export interface DigitalOptions {
 	at: Date;
 	width: number;
 	info?: boolean; // info e data dentro do digital (sem o painel de info ao lado)
+	power?: string; // linha da bateria (battery.ts), embaixo dos dígitos
 }
 
 const minus = (s: string) => s.replace(/^-/, '−');
@@ -58,7 +62,7 @@ export function infoTitle(row: Row): string {
 export function renderInfo(row: Row, at: Date, width: number): string[] {
 	const date = row.time ? formatDate(row.time.wall) : '';
 	const name = paint(truncate(row.name, width - 2), { fg: 'lit', bold: true });
-	return [center(sec(date), width), RULE, center(name, width), RULE, center(sec(truncate(offsetLine(row, at), width - 2)), width)];
+	return [center(sec(date), width), RULE, '', center(name, width), '', RULE, center(sec(truncate(offsetLine(row, at), width - 2)), width)];
 }
 
 // Info numa linha só; o nome é o que encurta quando não cabe.
@@ -86,7 +90,9 @@ export function renderDigital(row: Row, opts: DigitalOptions): string[] {
 		return indent + l + (right && '  ' + right);
 	});
 
-	if (!opts.info) return block;
-	const date = t ? sec(formatDate(t.wall)) : '';
-	return [center(infoLine(row, at, width), width), ...block, center(date, width)];
+	const power = opts.power ?? '';
+	if (!opts.info) return [center(sec('WORLD TIME'), width), ...block, center(sec(power), width)];
+	const date = t ? formatDate(t.wall) : '';
+	const bottom = truncate([date, power].filter(Boolean).join(' · '), width);
+	return [center(infoLine(row, at, width), width), ...block, center(sec(bottom), width)];
 }
